@@ -7,35 +7,61 @@ If one of the coordinator fails, new leader elected. When a node joins asks who 
 """
 
 import json
-import socketserver
-import threading
+import socket
+import time
 
 
-# TODO ADD LOGIC
-
-
+# TODO ADD LOGIC FOR COORDINATION / LEADER ELECTION
+# TODO ADD A SMALL CLEANUP. KINDA UGLY
 class Coordinator:
-    class _TCPHandler(socketserver.BaseRequestHandler):
-        def handle(self):
-            data = self.request.recv(1024)
-            if json.loads(data.decode())['type'] == 'liveness':
-                # TODO But Hooooow
-                print('Now I should add to known hosts', self.client_address[0], self.client_address[1])
-
-            self.request.sendall('coord'.encode())
-
     def __init__(self, host, port, coordinators):
         self.host = host
         self.port = int(port)
         self.coordinators = coordinators
 
         self.leader_ip = None
-        self.known_hosts = {}
-        self.server = None
+        self.known_peers = {}
 
     def _start_server(self):
-        with socketserver.TCPServer((self.host, self.port), Coordinator._TCPHandler) as server:
-            server.serve_forever()
+        soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            while True:
+                try:
+                    soc.bind((self.host, self.port))
+                    break
+                except OSError:
+                    print('[WARN] Address already in use. Waiting for it to be free.')
+                    time.sleep(5)
+            soc.listen(1)
+
+            while True:
+                connection, client_address = soc.accept()
+                try:
+                    data = connection.recv(1024)
+                    if data:
+                        try:
+                            request = json.loads(data.decode())
+
+                            old_known_peers = json.dumps(self.known_peers)
+                            if request['type'] == 'liveness':
+                                print('[DEBU]', client_address, '/liveness')
+                                self.known_peers[request['id']] = {
+                                    'host': request['host'],
+                                    'port': request['port']
+                                }
+
+                                if json.dumps(self.known_peers) != old_known_peers:
+                                    print('[DBU] Known peers updated:', json.dumps(self.known_peers))
+
+                            elif request['type'] == 'get-peers':
+                                print('[DEBU]', client_address, '/get-peers')
+                                connection.sendall(str.encode(json.dumps(self.known_peers)))
+                        except Exception as e:
+                            print('[WARN] Error parsing request:', e)
+                finally:
+                    connection.close()
+        finally:
+            soc.close()
 
     def start(self):
-        self.server = threading.Thread(target=self._start_server).start()
+        self._start_server()

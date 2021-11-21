@@ -10,40 +10,45 @@ down, but joining the network will be impossible
 
 import json
 import socket
-import socketserver
 import random
 import threading
+import time
 
 
-# TODO ADD LOGIC
-class TCPHandler(socketserver.BaseRequestHandler):
-    def handle(self):
-        print(self.request)
-        print(self.request.recv(1024))
-        data = self.request.recv(1024).strhost()
-        print(self.client_address)
-        print(data.decode())
-
-        self.request.sendall('world'.encode())
-
-
+# TODO ADD RECONNECTION WITH EXPONENTIAL WAITING
+# TODO IMPLEMENT GET KNOWN PEERS FROM CLOSE PEERS
+# TODO ADD PERIODICAL LIVENESS REPORT
+# TODO ADD PERIODICAL GET KNOWN PEERS
 class Peer:
-    def __init__(self, host, port, coordinators):
+    def __init__(self, peer_id, host, port, coordinators):
+        self.id = peer_id
         self.host = host
         self.port = int(port)
         self.coordinators = coordinators
 
         self.known_peers = {}
-        self.server = None
 
-    # TODO ADD LOGIC
     def _get_known_peers_from_coordinator(self, host, port):
-        raise NotImplementedError
+        new_peers = json.loads(self.send_message_to_known_peer(host, port, json.dumps({
+            'type': 'get-peers'
+        })))
 
-    # TODO ADD LOGIC
+        old_known_peers = json.dumps(self.known_peers)
+
+        for peer in new_peers:
+            self.known_peers[peer] = new_peers[peer]
+
+        if json.dumps(self.known_peers) != old_known_peers:
+            print('[INFO] Known peers updated')
+            print('[DEBU]', json.dumps(self.known_peers))
+
     def _report_liveness_to_coordinator(self, host, port):
-        self.send_message_to_known_peer(host, port, json.dumps({'type': 'liveness'}))
-        print(str.encode(json.dumps({'type': 'liveness'})))
+        self.send_message_to_known_peer(host, port, json.dumps({
+            'type': 'liveness',
+            'id': self.id,
+            'host': self.host,
+            'port': self.port
+        }))
 
     def _update_known_peers(self):
         if len(self.coordinators) > 0:
@@ -70,10 +75,28 @@ class Peer:
                     print('[WARN] Coordinator', coord_host, coord_port, 'down or not reachable:', e)
                     
     def _start_server(self):
-        with socketserver.TCPServer((self.host, self.port), TCPHandler) as server:
-            server.serve_forever()
+        soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            while True:
+                try:
+                    soc.bind((self.host, self.port))
+                    break
+                except OSError:
+                    print('[WARN] Address already in use. Waiting for it to be free.')
+                    time.sleep(5)
+            soc.listen(1)
 
-    # TODO ADD LOGIC
+            while True:
+                connection, client_address = soc.accept()
+                try:
+                    data = connection.recv(1024)
+                    if data:
+                        print(client_address, 'sent', data.decode())
+                finally:
+                    connection.close()
+        finally:
+            soc.close()
+
     # TODO ADD RECONNECTION
     @staticmethod
     def send_message_to_known_peer(host, port, message):
@@ -82,22 +105,21 @@ class Peer:
                 soc.connect((host, int(port)))
                 soc.sendall(str.encode(message))
                 data = soc.recv(1024)
-                print(data.decode())
+                return data.decode()
         except Exception as e:
             raise e
 
     def start(self):
         self._update_known_peers()
-        self.server = threading.Thread(target=self._start_server).start()
+        threading.Thread(target=self._start_server).start()
         self._report_liveness()
 
-    # TODO RAISE A REAL ERROR
     def send_message_to_peer(self, peer_id, message):
         if peer_id not in self.known_peers:
             self._update_known_peers()
 
         if peer_id not in self.known_peers:
-            raise NotImplementedError
+            raise ConnectionError('Peer', peer_id, 'not known')
 
         self.send_message_to_known_peer(
             self.known_peers[peer_id]['host'],
