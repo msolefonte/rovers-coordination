@@ -4,6 +4,8 @@ them. If they receive a read message, they will reply. If they receive a write m
 the leader. The leader will write and expand the change to the others.
 
 If one of the coordinator fails, new leader elected. When a node joins asks who is the leader and gets an updated list
+
+UPDATE: No need for a leader because no need for strong consistency
 """
 
 import json
@@ -11,7 +13,7 @@ import socket
 import time
 
 
-# TODO ADD LOGIC FOR COORDINATION / LEADER ELECTION
+# TODO ADD LOGIC FOR COORDINATION
 # TODO ADD A SMALL CLEANUP. KINDA UGLY
 class Coordinator:
     def __init__(self, host, port, coordinators):
@@ -51,7 +53,7 @@ class Coordinator:
                                 }
 
                                 if json.dumps(self.known_peers) != old_known_peers:
-                                    print('[DBU] Known peers updated:', json.dumps(self.known_peers))
+                                    print('[DEBU] Known peers updated:', json.dumps(self.known_peers))
 
                             elif request['type'] == 'get-peers':
                                 print('[DEBU]', client_address, '/get-peers')

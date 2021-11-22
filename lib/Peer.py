@@ -59,7 +59,8 @@ class Peer:
                     break
                 except Exception as e:
                     print('[WARN] Coordinator', coord_host, coord_port, 'down or not reachable:', e)
-    
+
+    # TODO USE TIMESTAMPS WITH LIVENESS
     def _report_liveness(self):
         while True:
             print('[DEBU] Reporting liveness')
@@ -93,23 +94,24 @@ class Peer:
                 try:
                     data = connection.recv(1024)
                     if data:
-                        print(client_address, 'sent', data.decode())
+                        print('[INFO]', client_address, 'sent', data.decode())
                 finally:
                     connection.close()
         finally:
             soc.close()
 
-    # TODO ADD RECONNECTION
     @staticmethod
     def send_message_to_known_peer(host, port, message, tries=3, interval=None):
         backoff = interval
 
         for i in range(tries):
             if not interval:
-                backoff = 2 ** i
+                backoff = int((2 ** i)/2)
 
             try:
-                time.sleep(backoff)
+                if i > 0 and backoff > 0:
+                    print('[DEBU] Waiting', backoff, 'seconds before reconnecting')
+                    time.sleep(backoff)
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as soc:
                     soc.connect((host, int(port)))
                     soc.sendall(str.encode(message))
@@ -118,6 +120,9 @@ class Peer:
             except Exception as e:
                 print('[WARN] Error trying to reach', host, port, ':', e)
                 time.sleep(5)
+
+        # TODO REMOVE AFTER SOME TIME FROM KNOWN (?)
+        raise ConnectionError('Connection refused by ', host, port)
 
     def start(self):
         self._update_known_peers()
