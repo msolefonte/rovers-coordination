@@ -15,9 +15,7 @@ import threading
 import time
 
 
-# TODO ADD RECONNECTION WITH EXPONENTIAL WAITING
 # TODO IMPLEMENT GET KNOWN PEERS FROM CLOSE PEERS
-# TODO ADD PERIODICAL LIVENESS REPORT
 # TODO ADD PERIODICAL GET KNOWN PEERS
 class Peer:
     def __init__(self, peer_id, host, port, coordinators):
@@ -63,16 +61,20 @@ class Peer:
                     print('[WARN] Coordinator', coord_host, coord_port, 'down or not reachable:', e)
     
     def _report_liveness(self):
-        if len(self.coordinators) > 0:
-            starting_point = random.randint(0, len(self.coordinators) - 1)
+        while True:
+            print('[DEBU] Reporting liveness')
+            if len(self.coordinators) > 0:
+                starting_point = random.randint(0, len(self.coordinators) - 1)
 
-            for i in range(len(self.coordinators)):
-                coord_host, coord_port = self.coordinators[(starting_point + i) % len(self.coordinators)].split(':')
-                try:
-                    self._report_liveness_to_coordinator(coord_host, coord_port)
-                    break
-                except Exception as e:
-                    print('[WARN] Coordinator', coord_host, coord_port, 'down or not reachable:', e)
+                for i in range(len(self.coordinators)):
+                    coord_host, coord_port = self.coordinators[(starting_point + i) % len(self.coordinators)].split(':')
+                    try:
+                        self._report_liveness_to_coordinator(coord_host, coord_port)
+                        print('[DEBU] Liveness reported to coordinator', coord_host, coord_port)
+                        break
+                    except Exception as e:
+                        print('[WARN] Coordinator', coord_host, coord_port, 'down or not reachable:', e)
+            time.sleep(30)
                     
     def _start_server(self):
         soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -99,22 +101,30 @@ class Peer:
 
     # TODO ADD RECONNECTION
     @staticmethod
-    def send_message_to_known_peer(host, port, message):
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as soc:
-                soc.connect((host, int(port)))
-                soc.sendall(str.encode(message))
-                data = soc.recv(1024)
-                return data.decode()
-        except Exception as e:
-            raise e
+    def send_message_to_known_peer(host, port, message, tries=3, interval=None):
+        backoff = interval
+
+        for i in range(tries):
+            if not interval:
+                backoff = 2 ** i
+
+            try:
+                time.sleep(backoff)
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as soc:
+                    soc.connect((host, int(port)))
+                    soc.sendall(str.encode(message))
+                    data = soc.recv(1024)
+                    return data.decode()
+            except Exception as e:
+                print('[WARN] Error trying to reach', host, port, ':', e)
+                time.sleep(5)
 
     def start(self):
         self._update_known_peers()
         threading.Thread(target=self._start_server).start()
-        self._report_liveness()
+        threading.Thread(target=self._report_liveness).start()
 
-    def send_message_to_peer(self, peer_id, message):
+    def send_message_to_peer(self, peer_id, message, tries=3, interval=None):
         if peer_id not in self.known_peers:
             self._update_known_peers()
 
@@ -124,5 +134,5 @@ class Peer:
         self.send_message_to_known_peer(
             self.known_peers[peer_id]['host'],
             self.known_peers[peer_id]['port'],
-            message
+            message, tries, interval
         )
