@@ -105,7 +105,8 @@ class Rover:
                         # print('[INFO] [SIM/TEST]', client_address, 'sent', message, flush=True)
                         # Simulates it is out of physical range. Basically refuses connection.
                         if self.low_battery_mode or \
-                                (message['emitter'] != 'tracker' and self._is_too_far_away(message['location'])):
+                                (message['emitter'] != 'network-visualizer' and
+                                 self._is_too_far_away(message['location'])):
                             connection.sendall('TOO_FAR_AWAY'.encode())
                         else:
                             print('[INFO] Received message from ', client_address[0] + ':' + str(client_address[1]) +
@@ -155,7 +156,7 @@ class Rover:
                     print('[INFO] Rover', reply['emitter'], 'at', str(reply['location']['x']) + ',' +
                           str(reply['location']['y']), 'replied:', reply['message'], flush=True)
                     replies.append(reply)
-                except ConnectionError as e:
+                except ConnectionError:
                     pass
                 except Exception as e:
                     print('[ERRO] [SIM/TEST]', e, flush=True)
@@ -170,5 +171,5 @@ class Rover:
 
     def start(self):
         threading.Thread(target=self._start_server).start()
-        if self.rover_id != 'tracker':
+        if self.rover_id != 'network-visualizer':
             threading.Thread(target=self._start_engine).start()
