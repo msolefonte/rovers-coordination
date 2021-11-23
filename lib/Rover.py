@@ -15,7 +15,7 @@ class Rover:
     def __init__(self, rover_id, host, port, known_peers, operation_area, max_speed, radio_range):
         self.rover_id = rover_id
 
-        # Network
+        # Network - Used to run the simulation. Not representative of the real topology
         self.host = host
         self.port = int(port)
         self.known_peers = known_peers.split(',') if known_peers != '' else []
@@ -37,6 +37,7 @@ class Rover:
 
         # Status
         self.movement_enabled = True
+        self.low_battery_mode = False
 
     def _move(self):
         x_movement = random.randint(0, self.max_speed) * (1 if random.random() < 0.5 else -1)
@@ -55,12 +56,28 @@ class Rover:
         self.speedometer = {'x': x_movement, 'y': y_movement}
 
     def _start_engine(self):
+        turns_spent_recharging = 0
         while True:
-            if self.movement_enabled:
-                self._move()
-                print('[INFO] Rover moved to new location', flush=True)
-                print('[DEBU] Positioning System lecture:', self.location, flush=True)
-                print('[DEBU] Speedometer lecture:', self.speedometer, flush=True)
+            # The battery has a 15% probability of getting empty. Once empty, the rover enters in the low battery mode
+            # and spends three turns in the same location.
+            if self.low_battery_mode:
+                if turns_spent_recharging >= 3:
+                    self.low_battery_mode = False
+                    print('[INFO] Battery recharged. Low battery mode disabled', flush=True)
+            elif random.randint(0, 100) < 15:
+                print('[INFO] Battery low. Deploying solar panels', flush=True)
+                self.low_battery_mode = True
+
+            if not self.low_battery_mode:
+                turns_spent_recharging = 0
+                if self.movement_enabled:
+                    self._move()
+                    print('[INFO] Rover moved to new location', flush=True)
+                    print('[DEBU] Positioning System lecture:', self.location, flush=True)
+                    print('[DEBU] Speedometer lecture:', self.speedometer, flush=True)
+            else:
+                print('[INFO] Recharging...', flush=True)
+                turns_spent_recharging += 1
             time.sleep(30)
 
     def _is_too_far_away(self, location):
@@ -87,7 +104,8 @@ class Rover:
                     if data:
                         # print('[INFO] [SIM/TEST]', client_address, 'sent', message, flush=True)
                         # Simulates it is out of physical range. Basically refuses connection.
-                        if message['emitter'] != 'tracker' and self._is_too_far_away(message['location']):
+                        if self.low_battery_mode or \
+                                (message['emitter'] != 'tracker' and self._is_too_far_away(message['location'])):
                             connection.sendall('TOO_FAR_AWAY'.encode())
                         else:
                             print('[INFO] Received message from ', client_address[0] + ':' + str(client_address[1]) +
@@ -117,35 +135,40 @@ class Rover:
                     if data == 'TOO_FAR_AWAY':  # Simulates it is out of physical range. Assume connection refused.
                         raise ConnectionError('Connection refused by ', host + ':' + port)
                     return data
-            except Exception as e:
-                # print('[WARN] [SIM/TEST] Error trying to reach', host + ':' + port + ':', e, flush=True)
+            except ConnectionError:
                 pass
+            except Exception as e:
+                print('[WARN] [SIM/TEST] Error trying to reach', host + ':' + port + ':', e, flush=True)
         raise ConnectionError('Connection refused by ', host + ':' + port)
 
     # Simulates a wireless broadcast
     def broadcast(self, message):
-        print('[INFO] Sending a broadcast message', flush=True)
-        replies = []
-        for peer in self.known_peers:
-            try:
-                peer_ip, peer_port = peer.split(':')
-                reply = json.loads(self._send_message_to_known_peer(peer_ip, peer_port, json.dumps(
-                    {'emitter': self.rover_id, 'location': self.location, 'message': message}
-                )))
-                print('[INFO] Rover', reply['emitter'], 'at', str(reply['location']['x']) + ',' +
-                      str(reply['location']['y']), 'replied:', reply['message'], flush=True)
-                replies.append(reply)
-            except ConnectionError as e:
-                pass
-            except Exception as e:
-                print('[ERRO] [SIM/TEST]', e, flush=True)
-                pass
+        if not self.low_battery_mode:
+            print('[INFO] Sending a broadcast message', flush=True)
+            replies = []
+            for peer in self.known_peers:
+                try:
+                    peer_ip, peer_port = peer.split(':')
+                    reply = json.loads(self._send_message_to_known_peer(peer_ip, peer_port, json.dumps(
+                        {'emitter': self.rover_id, 'location': self.location, 'message': message}
+                    )))
+                    print('[INFO] Rover', reply['emitter'], 'at', str(reply['location']['x']) + ',' +
+                          str(reply['location']['y']), 'replied:', reply['message'], flush=True)
+                    replies.append(reply)
+                except ConnectionError as e:
+                    pass
+                except Exception as e:
+                    print('[ERRO] [SIM/TEST]', e, flush=True)
+                    pass
 
-        if len(replies) == 0:
-            print('[INFO] Nobody got the broadcast. Am I alone? I should\'ve stayed at home with Beth.', flush=True)
+            if len(replies) == 0:
+                print('[INFO] Nobody got the broadcast. Am I alone? I should\'ve stayed at home with Beth.', flush=True)
 
-        return replies
+            return replies
+        else:
+            raise SystemError('Broadcasting disabled due to the rover being in low energy mode')
 
     def start(self):
         threading.Thread(target=self._start_server).start()
-        threading.Thread(target=self._start_engine).start()
+        if self.rover_id != 'tracker':
+            threading.Thread(target=self._start_engine).start()
