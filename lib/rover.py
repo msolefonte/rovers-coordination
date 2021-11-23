@@ -15,7 +15,7 @@ def main():
             replies = rover.broadcast('Hello')
 
             # Tracker node does not really interact with the network. It is there just to print the map.
-            if rover_id == 'tracker':
+            if rover_id == 'network-visualizer':
                 mars_map = [['x'] * 15 for x in range(15)]
                 for reply in replies:
                     mars_map[int(reply['location']['x']/200)][int(reply['location']['y']/200)] = reply['emitter'][-1]

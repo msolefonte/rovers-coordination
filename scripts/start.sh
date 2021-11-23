@@ -14,4 +14,4 @@ python3 lib/rover.py rover6 ${hostname} 7006 ${hostname}:7000,${hostname}:7001,$
 python3 lib/rover.py rover7 ${hostname} 7007 ${hostname}:7000,${hostname}:7001,${hostname}:7002,${hostname}:7003,${hostname}:7004,${hostname}:7005,${hostname}:7006,${hostname}:7008 2000,1000,2999,1999 20 1500 2>&1 > /tmp/p3/logs/rover7.log &
 python3 lib/rover.py rover8 ${hostname} 7008 ${hostname}:7000,${hostname}:7001,${hostname}:7002,${hostname}:7003,${hostname}:7004,${hostname}:7005,${hostname}:7006,${hostname}:7007 2000,2000,2999,2999 20 1500 2>&1 > /tmp/p3/logs/rover8.log &
 
-python3 lib/rover.py tracker ${hostname} 7009 ${hostname}:7000,${hostname}:7001,${hostname}:7002,${hostname}:7003,${hostname}:7004,${hostname}:7005,${hostname}:7006,${hostname}:7007,${hostname}:7008 1500,1500,1500,1500 0 0 2>&1 > /tmp/p3/logs/tracker.log &
+python3 lib/rover.py network-visualizer ${hostname} 7009 ${hostname}:7000,${hostname}:7001,${hostname}:7002,${hostname}:7003,${hostname}:7004,${hostname}:7005,${hostname}:7006,${hostname}:7007,${hostname}:7008 1500,1500,1500,1500 0 0 2>&1 > /tmp/p3/logs/network-visualizer.log &
