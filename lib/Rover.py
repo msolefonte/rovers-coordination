@@ -43,11 +43,11 @@ class Rover:
         y_movement = random.randint(0, self.max_speed) * (1 if random.random() < 0.5 else -1)
 
         if self.location['x'] + x_movement < self.operation_area[0][0]:
-            x_movement = - self.location['x']
+            x_movement = self.operation_area[0][0] - self.location['x']
         if self.location['x'] + x_movement > self.operation_area[1][0]:
             x_movement = self.operation_area[1][0] - self.location['x']
         if self.location['y'] + y_movement < self.operation_area[0][1]:
-            y_movement = - self.location['y']
+            y_movement = self.operation_area[0][1] - self.location['y']
         if self.location['y'] + y_movement > self.operation_area[1][1]:
             y_movement = self.operation_area[1][1] - self.location['y']
 
@@ -93,7 +93,7 @@ class Rover:
                             print('[INFO] Received message from ', client_address[0] + ':' + str(client_address[1]) +
                                   ':', message, flush=True)
                             connection.sendall(json.dumps(
-                                {'emitter': self.rover_id, 'location': self.location, 'message': '200OK'}
+                                {'emitter': self.rover_id, 'location': self.location, 'message': 'OK'}
                             ).encode())
 
                 finally:
