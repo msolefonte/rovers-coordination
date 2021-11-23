@@ -1,3 +1,4 @@
+import json
 import sys
 from Peer import Peer
 from time import sleep
@@ -13,7 +14,7 @@ def main():
         for target in targets.split(','):
             sleep(5)
             try:
-                peer.send_message_to_peer(target, 'Hello')
+                peer.send_message_to_peer(target, json.dumps({'lectures': ['abc', 'bca', 'cab']}))
             except Exception as e:
                 print('[ERRO] Peer', target, 'not reachable:', e)
 
