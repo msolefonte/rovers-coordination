@@ -10,8 +10,6 @@ class P2PNode:
         self.port = int(port)
         self.known_peers = {'peers': {}, 'coordinators': coordinators}
 
-    # TODO ADD SOME KIND OF TIMESTAMP REGARDING LAST UPDATE
-    # TODO MAYBE REMOVE NODES IF TIMESTAMP IS TO OLD
     def _get_known_peers_from_coordinator(self, host, port):
         new_peers = json.loads(self.send_message_to_known_peer(host, port, json.dumps({
             'type': 'get-peers'
@@ -20,7 +18,9 @@ class P2PNode:
         old_known_peers = json.dumps(self.known_peers)
 
         for peer in new_peers['peers']:
-            self.known_peers['peers'][peer] = new_peers['peers'][peer]
+            if peer not in self.known_peers['peers'] or \
+                    new_peers['peers'][peer]['last-heartbeat'] > self.known_peers['peers'][peer]['last-heartbeat']:
+                self.known_peers['peers'][peer] = new_peers['peers'][peer]
 
         for coordinator in new_peers['coordinators']:
             if coordinator not in self.known_peers['coordinators']:
@@ -41,7 +41,15 @@ class P2PNode:
                     self._get_known_peers_from_coordinator(coord_host, coord_port)
                     break
                 except Exception as e:
-                    print('[WARN] Coordinator', coord_host, coord_port, 'down or not reachable:', e, flush=True)
+                    print('[WARN] Coordinator', coord_host + ':' + coord_port, 'down or not reachable:', e, flush=True)
+
+    def _delete_old_peers(self):
+        while True:
+            time.sleep(30)
+            for peer in list(self.known_peers['peers']):
+                if time.time() - self.known_peers['peers'][peer]['last-heartbeat'] > 300:
+                    print('[DEBU] Removing peer', peer, 'from known peers. Last heartbeat too old.')
+                    del self.known_peers['peers'][peer]
 
     @staticmethod
     def send_message_to_known_peer(host, port, message, tries=3, interval=None):
@@ -61,8 +69,7 @@ class P2PNode:
                     data = soc.recv(1024)
                     return data.decode()
             except Exception as e:
-                print('[WARN] Error trying to reach', host, port, ':', e, flush=True)
+                print('[WARN] Error trying to reach', host + ':' + port + ':', e, flush=True)
                 time.sleep(5)
 
-        # TODO REMOVE AFTER SOME TIME FROM KNOWN (?)
-        raise ConnectionError('Connection refused by ', host, port)
+        raise ConnectionError('Connection refused by ', host + ':' + port)

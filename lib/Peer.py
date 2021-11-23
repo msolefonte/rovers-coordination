@@ -8,7 +8,6 @@ from utils.P2PNode import P2PNode
 
 # TODO ASK OTHER PEERS FOR SPECIFIC IDS, WITH TTL
 # TODO IMPLEMENT GET KNOWN PEERS FROM CLOSE PEERS
-# TODO ADD PERIODICAL GET KNOWN PEERS
 class Peer(P2PNode):
     def __init__(self, peer_id, host, port, coordinators):
         super().__init__(host, port, coordinators)
@@ -22,7 +21,6 @@ class Peer(P2PNode):
             'port': self.port
         }))
 
-    # TODO USE TIMESTAMPS WITH LIVENESS
     def _report_liveness(self):
         coordinators = self.known_peers['coordinators']
         while True:
@@ -67,6 +65,7 @@ class Peer(P2PNode):
         self._update_known_peers()
         threading.Thread(target=self._start_server).start()
         threading.Thread(target=self._report_liveness).start()
+        threading.Thread(target=self._delete_old_peers).start()
 
     def send_message_to_peer(self, peer_id, message, tries=3, interval=None):
         if peer_id not in self.known_peers['peers']:
@@ -80,3 +79,5 @@ class Peer(P2PNode):
             self.known_peers['peers'][peer_id]['port'],
             message, tries, interval
         )
+
+        self.known_peers['peers'][peer_id]['last-heartbeat'] = time.time()
