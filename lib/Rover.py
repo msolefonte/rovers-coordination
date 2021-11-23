@@ -3,6 +3,7 @@ import random
 import socket
 import threading
 import time
+import uuid
 
 
 class Rover:
@@ -38,6 +39,7 @@ class Rover:
         # Status
         self.movement_enabled = True
         self.low_battery_mode = False
+        self.consumed_nonces = {}  # {nonce: timestamp}
 
     def _move(self):
         x_movement = random.randint(0, self.max_speed) * (1 if random.random() < 0.5 else -1)
@@ -58,13 +60,13 @@ class Rover:
     def _start_engine(self):
         turns_spent_recharging = 0
         while True:
-            # The battery has a 15% probability of getting empty. Once empty, the rover enters in the low battery mode
+            # The battery has a 5% probability of getting empty. Once empty, the rover enters in the low battery mode
             # and spends three turns in the same location.
             if self.low_battery_mode:
                 if turns_spent_recharging >= 3:
                     self.low_battery_mode = False
                     print('[INFO] Battery recharged. Low battery mode disabled', flush=True)
-            elif random.randint(0, 100) < 15:
+            elif random.randint(0, 100) < 5:
                 print('[INFO] Battery low. Deploying solar panels', flush=True)
                 self.low_battery_mode = True
 
@@ -83,6 +85,21 @@ class Rover:
     def _is_too_far_away(self, location):
         return ((((location['x'] - self.location['x'])**2) + ((location['y']-self.location['y'])**2))**0.5) > \
                self.radio_range
+
+    def _handle_message(self, message, connection):
+        if message['type'] == 'heartbeat':
+            connection.sendall(json.dumps(
+                {'emitter': self.rover_id, 'location': self.location, 'body': 'OK'}
+            ).encode())
+        elif message['type'] == 'target' and message['nonce'] not in self.consumed_nonces.keys():
+            self.consumed_nonces[message['nonce']] = time.time()
+            if message['to'] == self.rover_id:
+                print('[INFO] That message was for me, so nice! Thank you', message['reply_to'])
+            else:
+                ttl = message['ttl'] - 1
+                if ttl >= 0:
+                    self.send_message_to_rover(message['message'], message['to'], message['reply_to'],
+                                               message['nonce'], ttl)
 
     def _start_server(self):
         soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -109,19 +126,16 @@ class Rover:
                                  self._is_too_far_away(message['location'])):
                             connection.sendall('TOO_FAR_AWAY'.encode())
                         else:
-                            print('[INFO] Received message from ', client_address[0] + ':' + str(client_address[1]) +
+                            print('[DEBU] Received message from ', client_address[0] + ':' + str(client_address[1]) +
                                   ':', message, flush=True)
-                            connection.sendall(json.dumps(
-                                {'emitter': self.rover_id, 'location': self.location, 'message': 'OK'}
-                            ).encode())
-
+                            self._handle_message(json.loads(message['body']), connection)
                 finally:
                     connection.close()
         finally:
             soc.close()
 
     @staticmethod
-    def _send_message_to_known_peer(host, port, message, tries=3):
+    def _send_message_to_known_peer(host, port, message, tries=1):
         for i in range(tries):
             backoff = int((2 ** i)) - 1
             try:
@@ -151,21 +165,44 @@ class Rover:
                 try:
                     peer_ip, peer_port = peer.split(':')
                     reply = json.loads(self._send_message_to_known_peer(peer_ip, peer_port, json.dumps(
-                        {'emitter': self.rover_id, 'location': self.location, 'message': message}
+                        {'emitter': self.rover_id, 'location': self.location, 'body': message}
                     )))
                     print('[INFO] Rover', reply['emitter'], 'at', str(reply['location']['x']) + ',' +
-                          str(reply['location']['y']), 'replied:', reply['message'], flush=True)
+                          str(reply['location']['y']), 'replied:', reply['body'], flush=True)
                     replies.append(reply)
                 except ConnectionError:
                     pass
                 except Exception as e:
-                    print('[ERRO] [SIM/TEST]', e, flush=True)
-                    pass
+                    print('[ERRO] [SIM/TEST] Broadcast simulation error:', e, flush=True)
 
             if len(replies) == 0:
                 print('[INFO] Nobody got the broadcast. Am I alone? I should\'ve stayed at home with Beth.', flush=True)
 
             return replies
+        else:
+            raise SystemError('Broadcasting disabled due to the rover being in low energy mode')
+
+    def heartbeat(self):
+        return self.broadcast(json.dumps({'type': 'heartbeat'}))
+
+    # Simulates a wireless broadcast
+    def send_message_to_rover(self, message, rover_id, reply_to_id=None, nonce=None, ttl=16):
+        if not self.low_battery_mode:
+            nonce = nonce if nonce else uuid.uuid4().hex
+            reply_to_id = reply_to_id if reply_to_id else self.rover_id
+
+            print('[INFO] Broadcasting message targeting', rover_id + '. (Origin', reply_to_id + ')')
+
+            self.broadcast(json.dumps({
+                'type': 'target',
+                'message': message,
+                'to': rover_id,
+                'reply_to': reply_to_id if reply_to_id else self.rover_id,
+                'nonce': nonce,
+                'ttl': ttl
+            }))
+
+            self.consumed_nonces[nonce] = time.time()
         else:
             raise SystemError('Broadcasting disabled due to the rover being in low energy mode')
 
