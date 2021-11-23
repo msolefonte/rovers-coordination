@@ -87,7 +87,7 @@ class Rover:
                     if data:
                         # print('[INFO] [SIM/TEST]', client_address, 'sent', message, flush=True)
                         # Simulates it is out of physical range. Basically refuses connection.
-                        if self._is_too_far_away(message['location']):
+                        if message['emitter'] != 'tracker' and self._is_too_far_away(message['location']):
                             connection.sendall('TOO_FAR_AWAY'.encode())
                         else:
                             print('[INFO] Received message from ', client_address[0] + ':' + str(client_address[1]) +
@@ -125,26 +125,26 @@ class Rover:
     # Simulates a wireless broadcast
     def broadcast(self, message):
         print('[INFO] Sending a broadcast message', flush=True)
-        repliers = []
+        replies = []
         for peer in self.known_peers:
             try:
                 peer_ip, peer_port = peer.split(':')
-                resp = json.loads(self._send_message_to_known_peer(peer_ip, peer_port, json.dumps(
+                reply = json.loads(self._send_message_to_known_peer(peer_ip, peer_port, json.dumps(
                     {'emitter': self.rover_id, 'location': self.location, 'message': message}
                 )))
-                print('[INFO] Rover', resp['emitter'], 'at', str(resp['location']['x']) + ',' +
-                      str(resp['location']['y']), 'replied:', resp['message'], flush=True)
-                repliers.append(resp['emitter'])
+                print('[INFO] Rover', reply['emitter'], 'at', str(reply['location']['x']) + ',' +
+                      str(reply['location']['y']), 'replied:', reply['message'], flush=True)
+                replies.append(reply)
             except ConnectionError as e:
                 pass
             except Exception as e:
                 print('[ERRO] [SIM/TEST]', e, flush=True)
                 pass
 
-        if len(repliers) > 0:
-            print('[INFO] Broadcast replied by', ', '.join(repliers), ':)', flush=True)
-        else:
-            print('[INFO] Nobody got the broadcast :(', flush=True)
+        if len(replies) == 0:
+            print('[INFO] Nobody got the broadcast. Am I alone? I should\'ve stayed at home with Beth.', flush=True)
+
+        return replies
 
     def start(self):
         threading.Thread(target=self._start_server).start()
