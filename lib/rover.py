@@ -11,7 +11,17 @@ def main():
 
     while True:
         sleep(20)
-        rover.broadcast('Hello')
+        replies = rover.broadcast('Hello')
+
+        if rover_id == 'tracker':
+            mars_map = [['x'] * 15 for x in range(15)]
+            for reply in replies:
+                mars_map[int(reply['location']['x']/200)][int(reply['location']['y']/200)] = reply['emitter'][-1]
+
+            map_string = ''
+            for line in mars_map:
+                map_string += ' '.join(line) + '\n'
+            print(map_string[:-1], flush=True)
 
 
 main()
