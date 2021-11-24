@@ -1,6 +1,7 @@
 import json
 import socket
 import time
+import threading
 import uuid
 
 
@@ -19,15 +20,44 @@ class SDNNode:
 
         # Status
         self.location = location
-        self.low_battery_mode = False
+        self.networking_disabled = False
         self.consumed_nonces = {}  # {nonce: timestamp}
+
+    # Simulation
 
     def _is_too_far_away(self, location):
         return ((((location['x'] - self.location['x'])**2) + ((location['y']-self.location['y'])**2))**0.5) > \
                self.radio_range
 
-    def _handle_message(self, message, client_address, connection):
-        raise NotImplementedError
+    @staticmethod
+    def _send_message_to_known_peer(host, port, message, tries):
+        for i in range(tries):
+            backoff = int((2 ** i)) - 1
+            try:
+                if i > 0 and backoff > 0:
+                    time.sleep(backoff)
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as soc:
+                    soc.connect((host, int(port)))
+                    soc.sendall(str.encode(message))
+
+                    data = soc.recv(1024).decode()
+                    if data == 'TOO_FAR_AWAY':  # Simulates it is out of physical range. Assume connection refused.
+                        raise ConnectionError('Connection refused by ', host + ':' + port)
+            except ConnectionError:
+                pass
+            except Exception as e:
+                print('[WARN] [SDN] Error trying to reach', host + ':' + port + ':', e, flush=True)
+        raise ConnectionError('Connection refused by ', host + ':' + port)
+
+    def _send_message_to_known_peer_no_error(self, host, port, message, tries=3):
+        try:
+            SDNNode._send_message_to_known_peer(host, port, json.dumps(
+                {'emitter': self.node_id, 'location': self.location, 'content': message}
+            ), tries)
+        except ConnectionError:
+            pass
+        except Exception as e:
+            print('[ERRO] [SDN] Broadcast simulation error:', e, flush=True)
 
     def _start_server(self):
         soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -35,10 +65,10 @@ class SDNNode:
             while True:
                 try:
                     soc.bind((self.host, self.port))
-                    print('[INFO] [SIM/TEST] Address bound.', flush=True)
+                    print('[INFO] [SDN] Address bound.', flush=True)
                     break
                 except OSError as e:
-                    print('[WARN] [SIM/TEST] Address already in use. Waiting for it to be free.', flush=True)
+                    print('[WARN] [SDN] Address already in use. Waiting for it to be free.', flush=True)
                     time.sleep(5)
 
             soc.listen(1)
@@ -48,73 +78,35 @@ class SDNNode:
                     data = connection.recv(1024)
                     message = json.loads(data.decode())
                     if data:
-                        # print('[TRAC] [SIM/TEST]', client_address, 'sent', message, flush=True)
                         # Simulates it is out of physical range. Basically refuses connection.
-                        if self.low_battery_mode or \
-                                (message['emitter'] != 'network-visualizer' and
-                                 self._is_too_far_away(message['location'])):
+                        if self.networking_disabled or self._is_too_far_away(message['location']):
                             connection.sendall('TOO_FAR_AWAY'.encode())
                         else:
-                            self._handle_message(message, client_address, connection)
+                            threading.Thread(
+                                target=lambda: self._handle_request(message, client_address)).start()
                 finally:
                     connection.close()
         finally:
             soc.close()
 
-    @staticmethod
-    def _send_message_to_known_peer(host, port, message, tries=1):
-        for i in range(tries):
-            backoff = int((2 ** i)) - 1
-            try:
-                if i > 0 and backoff > 0:
-                    # print('[DEBU] [SIM/TEST] Waiting', backoff, 'seconds before reconnecting', flush=True)
-                    time.sleep(backoff)
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as soc:
-                    soc.connect((host, int(port)))
-                    soc.sendall(str.encode(message))
+    # Simulated methods
 
-                    data = soc.recv(1024).decode()
-                    if data == 'TOO_FAR_AWAY':  # Simulates it is out of physical range. Assume connection refused.
-                        raise ConnectionError('Connection refused by ', host + ':' + port)
-                    return data
-            except ConnectionError:
-                pass
-            except Exception as e:
-                print('[WARN] [SIM/TEST] Error trying to reach', host + ':' + port + ':', e, flush=True)
-        raise ConnectionError('Connection refused by ', host + ':' + port)
+    def _handle_request(self, message, client_address):
+        raise NotImplementedError
 
-    # Simulates a wireless broadcast
     def broadcast(self, message):
-        if not self.low_battery_mode:
+        if not self.networking_disabled:
             print('[INFO] Sending a broadcast message', flush=True)
-            replies = []
             for peer in self.known_peers:
-                try:
-                    peer_ip, peer_port = peer.split(':')
-                    reply = json.loads(self._send_message_to_known_peer(peer_ip, peer_port, json.dumps(
-                        {'emitter': self.node_id, 'location': self.location, 'body': message}
-                    )))
-                    print('[INFO] Rover', reply['emitter'], 'at', str(reply['location']['x']) + ',' +
-                          str(reply['location']['y']), 'replied:', reply['body'], flush=True)
-                    replies.append(reply)
-                except ConnectionError:
-                    pass
-                except Exception as e:
-                    print('[ERRO] [SIM/TEST] Broadcast simulation error:', e, flush=True)
-
-            if len(replies) == 0:
-                print('[INFO] Nobody got the broadcast. Am I alone? I should\'ve stayed at home with Beth.', flush=True)
-
-            return replies
+                peer_ip, peer_port = peer.split(':')
+                threading.Thread(
+                    target=lambda: self._send_message_to_known_peer_no_error(peer_ip, peer_port, message)
+                ).start()
         else:
-            raise SystemError('Broadcasting disabled due to the rover being in low energy mode')
+            raise SystemError('Broadcasting disabled')
 
-    def heartbeat(self):
-        return self.broadcast(json.dumps({'type': 'heartbeat'}))
-
-    # Simulates a wireless broadcast
-    def send_message_to(self, message, target_id, reply_to_id=None, nonce=None, ttl=16):
-        if not self.low_battery_mode:
+    def broadcast_message_to(self, message, target_id, reply_to_id=None, nonce=None, ttl=16):
+        if not self.networking_disabled:
             nonce = nonce if nonce else uuid.uuid4().hex
             reply_to_id = reply_to_id if reply_to_id else self.node_id
 
@@ -131,4 +123,7 @@ class SDNNode:
 
             self.consumed_nonces[nonce] = time.time()
         else:
-            raise SystemError('Broadcasting disabled due to the rover being in low energy mode')
+            raise SystemError('Broadcasting disabled')
+
+    def heartbeat(self):
+        self.broadcast(json.dumps({'type': 'heartbeat'}))
