@@ -4,10 +4,11 @@ from time import sleep
 import threading
 
 
+# TODO HANDLE ASYNC NETWORKING. A TIME CONSUMING OPERATION CAN NOT BLOCK EVERYTHING ELSE.
 def main():
     print('[INFO] Rover started with args', sys.argv[1:], flush=True)
     rover_id, host, port, known_peers, coordinates, speed, radio_range = sys.argv[1:]
-    rover = Rover(rover_id, host, port, known_peers, coordinates, speed, radio_range)
+    rover = Rover(rover_id, host, int(port), known_peers, coordinates, int(speed), int(radio_range))
     rover.start()
 
     while True:
@@ -27,7 +28,7 @@ def main():
                 print(map_string[:-1], flush=True)
             else:
                 if rover_id == 'rover8':
-                    threading.Thread(target=lambda: rover.send_message_to_rover('hello', 'rover0')).start()
+                    threading.Thread(target=lambda: rover.send_message_to('hello', 'rover0')).start()
         except SystemError:
             pass
 
