@@ -3,6 +3,7 @@ import time
 from utils.SDNNode import SDNNode
 
 
+
 class NetworkVisualizer(SDNNode):
     def __init__(self, node_id, host, port, location_x, location_y):
         super().__init__(node_id, {'x': int(location_x), 'y': int(location_y)}, host, int(port), [], 999999999999)

@@ -30,6 +30,7 @@ class Rover(SDNNode):
         self.movement_enabled = True
         self.low_battery_mode = False
 
+
     def _move(self):
         x_movement = random.randint(0, self.max_speed) * (1 if random.random() < 0.5 else -1)
         y_movement = random.randint(0, self.max_speed) * (1 if random.random() < 0.5 else -1)
