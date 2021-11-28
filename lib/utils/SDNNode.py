@@ -110,7 +110,7 @@ class SDNNode:
             nonce = nonce if nonce else uuid.uuid4().hex
             reply_to_id = reply_to_id if reply_to_id else self.node_id
 
-            print('[INFO] Broadcasting message targeting', target_id + '. (Origin', reply_to_id + ')')
+            # print('[INFO] Broadcasting message targeting', target_id + '. (Origin', reply_to_id + ')')
 
             self.broadcast(json.dumps({
                 'type': 'target',

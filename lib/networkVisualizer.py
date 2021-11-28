@@ -1,5 +1,5 @@
 import sys
-from NetworkVisualizer import NetworkVisualizer
+from utils.NetworkVisualizer import NetworkVisualizer
 
 
 def main():
