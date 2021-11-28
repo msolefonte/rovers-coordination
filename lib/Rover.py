@@ -84,7 +84,7 @@ class Rover(SDNNode):
         elif content['type'] == 'target' and content['nonce'] not in self.consumed_nonces.keys():
             self.consumed_nonces[content['nonce']] = time.time()
             if content['to'] == self.node_id:
-                print('[INFO] That content was for me, so nice! Thank you', content['reply_to'])
+                print('[INFO] That content was for me({}), so nice! Thank you {}'.format(self.node_id,content['reply_to']))
             else:
                 ttl = content['ttl'] - 1
                 if ttl >= 0:

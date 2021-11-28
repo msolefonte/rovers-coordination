@@ -12,10 +12,9 @@ class SDNNode:
 
     private_key = 856 #Manu
     private_iv = 154  #Manu
+    private_network_key = 'rover_pwd'
+    public_network_key =  'externals'
 
-    def set_keys(key_from_earth,iv_from_earth):
-        private_key = key_from_earth #Manu
-        private_iv = iv_from_earth  #Manu
 
 
     def __init__(self, node_id, location, host, port, known_peers, radio_range):
@@ -39,12 +38,15 @@ class SDNNode:
     # Simulation
 
     def _is_too_far_away(self, location):
-        return ((((location['x'] - self.location['x'])**2) + ((location['y']-self.location['y'])**2))**0.5) > \
+        if location == 'Earth':
+            return False
+        else:
+            return ((((location['x'] - self.location['x'])**2) + ((location['y']-self.location['y'])**2))**0.5) > \
                self.radio_range
 
 
     # Encryption and Decryption of messags for security
-    def encrypt_message(msg,keynum,ivnum):
+    def encrypt_message(msg,keynum,ivnum,external=False):
         backend = default_backend()
         key = keynum.to_bytes(16,'big')
         iv = ivnum.to_bytes(16,'big')
@@ -52,6 +54,10 @@ class SDNNode:
         encryptor = cipher.encryptor()
         padded_msg = str.encode(msg+(16-(len(msg)%16))*' ')
         ct = encryptor.update(padded_msg) + encryptor.finalize()
+        if external ==False:
+            ct=str.encode(SDNNode.private_network_key+ct.hex())
+        else:
+            ct=str.encode(SDNNode.public_network_key+ct.hex())
         return ct
 
 
@@ -65,11 +71,21 @@ class SDNNode:
         try:
             cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
             decryptor = cipher.decryptor()
-            msg = decryptor.update(ct) + decryptor.finalize()
-            msg_decoded = str(msg,'utf-8')
+            st= ct.decode()
+            ct_key = st[:9]
+            ct_value = ''
+            msg =''
+            msg_decoded= ''
+            if (ct_key == SDNNode.private_network_key) or (ct_key == SDNNode.public_network_key):
+                ct_value = bytes.fromhex(st[9:])
+                msg = decryptor.update(ct_value) + decryptor.finalize()
+                msg_decoded = str(msg,'utf-8')
+            else:
+                msg_decoded =st
+                #print('[WARN] [SDN] Unautorized message, ignoring the message:'+st)
         except Exception as e:
             print('[WARN] [SDN] Invalid encryptions (possible injections), ignoring the message', e, flush=True)    
-        return msg_decoded
+        return ct_key , msg_decoded
 
 
     
@@ -85,7 +101,7 @@ class SDNNode:
                     #soc.sendall(str.encode(message))
                     soc.sendall(SDNNode.encrypt_message(message,__class__.private_key,__class__.private_iv)) #Manu
                     #data = soc.recv(1024).decode()
-                    data = SDNNode.decrypt_message(soc.recv(1024),__class__.private_key,__class__.private_iv) #Manu
+                    data = SDNNode.decrypt_message(soc.recv(1024),__class__.private_key,__class__.private_iv)[1] #Manu
                     if data == 'TOO_FAR_AWAY':  # Simulates it is out of physical range. Assume connection refused.
                         raise ConnectionError('Connection refused by ', host + ':' + port)
             except ConnectionError:
@@ -122,10 +138,10 @@ class SDNNode:
                 try:
                     data = connection.recv(1024)
                     #message = json.loads(data.decode())
-                    message = json.loads(SDNNode.decrypt_message(data,__class__.private_key,__class__.private_iv)) #Manu
-                    if data:
+                    message = json.loads(SDNNode.decrypt_message(data,__class__.private_key,__class__.private_iv)[1]) #Manu
+                    if data and message['location']:
                         # Simulates it is out of physical range. Basically refuses connection.
-                        if self.networking_disabled or self._is_too_far_away(message['location']):
+                        if self.networking_disabled or self._is_too_far_away(message['location']) :
                             #connection.sendall('TOO_FAR_AWAY'.encode())
                             connection.sendall(SDNNode.encrypt_message('TOO_FAR_AWAY',__class__.private_key,__class__.private_iv))  #Manu
                         else:
@@ -151,7 +167,7 @@ class SDNNode:
                 ).start()
         else:
             raise SystemError('Broadcasting disabled')
-
+    
     def broadcast_message_to(self, message, target_id, reply_to_id=None, nonce=None, ttl=16):
         if not self.networking_disabled:
             nonce = nonce if nonce else uuid.uuid4().hex
@@ -198,3 +214,5 @@ class SDNNode:
             pass
         except Exception as e:
             print('[WARN] [SDN] Error trying to reach Data Storage', flush=True)
+
+    
