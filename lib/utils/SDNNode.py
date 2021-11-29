@@ -2,7 +2,6 @@ import json
 import socket
 import time
 import threading
-import uuid
 
 
 class SDNNode:
@@ -21,7 +20,6 @@ class SDNNode:
         # Status
         self.location = location
         self.networking_disabled = False
-        self.consumed_nonces = {}  # {nonce: timestamp}
 
     # Simulation
 
@@ -104,26 +102,3 @@ class SDNNode:
                 ).start()
         else:
             raise SystemError('Broadcasting disabled')
-
-    def broadcast_message_to(self, message, target_id, reply_to_id=None, nonce=None, ttl=16):
-        if not self.networking_disabled:
-            nonce = nonce if nonce else uuid.uuid4().hex
-            reply_to_id = reply_to_id if reply_to_id else self.node_id
-
-            print('[INFO] Broadcasting message targeting', target_id + '. (Origin', reply_to_id + ')')
-
-            self.broadcast(json.dumps({
-                'type': 'target',
-                'message': message,
-                'to': target_id,
-                'reply_to': reply_to_id if reply_to_id else self.node_id,
-                'nonce': nonce,
-                'ttl': ttl
-            }))
-
-            self.consumed_nonces[nonce] = time.time()
-        else:
-            raise SystemError('Broadcasting disabled')
-
-    def heartbeat(self):
-        self.broadcast(json.dumps({'type': 'heartbeat'}))
