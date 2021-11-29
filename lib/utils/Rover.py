@@ -2,17 +2,17 @@ import json
 import random
 import threading
 import time
-from utils.SDNNode import SDNNode
+from .RoverRadio import RoverRadio
 
 
-class Rover(SDNNode):
+class Rover(RoverRadio):
     """
     rover_id - id, host - host, port - port
     known_peers = host:port,host:port // For simulation purposes
     operation_area - 0,0,999,999 // Coordinates that defines the operation area. Second point always bigger
     speed - 20
     """
-    def __init__(self, rover_id, host, port, known_peers, operation_area, max_speed, radio_range):
+    def __init__(self, rover_id, host, port, known_peers, operation_area, max_speed, radio_range, encryption_key):
         self.operation_area = [
             [int(operation_area.split(',')[0]), int(operation_area.split(',')[1])],
             [int(operation_area.split(',')[2]), int(operation_area.split(',')[3])]
@@ -20,7 +20,7 @@ class Rover(SDNNode):
         super().__init__(rover_id, {
             'x': random.randint(self.operation_area[0][0], self.operation_area[1][0]),
             'y': random.randint(self.operation_area[0][1], self.operation_area[1][1])
-        }, host, int(port), known_peers.split(',') if known_peers != '' else [], radio_range)
+        }, host, int(port), known_peers.split(',') if known_peers != '' else [], radio_range, encryption_key)
 
         # Sensors
         self.max_speed = max_speed
@@ -73,10 +73,10 @@ class Rover(SDNNode):
                 turns_spent_recharging += 1
             time.sleep(30)
 
-    def _handle_request(self, message, client_address):
+    def _handle_decrypted_request(self, message, client_address):
         # print('[DEBU] Received message from', client_address[0] + ':' + str(client_address[1]) +
         #      ':', message, flush=True)
-        
+
         content = json.loads(message['content'])
         if content['type'] == 'heartbeat':
             pass  # Good to know I guess. Maybe useful for something
@@ -87,7 +87,8 @@ class Rover(SDNNode):
             else:
                 ttl = content['ttl'] - 1
                 if ttl >= 0:
-                    self.broadcast_message_to(content['message'], content['to'], content['reply_to'], content['nonce'], ttl)
+                    self.broadcast_message_to(content['message'], content['to'], content['reply_to'],
+                                              content['nonce'], ttl)
 
     def start(self):
         threading.Thread(target=self._start_server).start()
