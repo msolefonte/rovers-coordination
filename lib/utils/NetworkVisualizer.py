@@ -1,17 +1,18 @@
 import threading
 import time
-from utils.SDNNode import SDNNode
+from .RoverRadio import RoverRadio
 
 
-class NetworkVisualizer(SDNNode):
-    def __init__(self, node_id, host, port, location_x, location_y):
-        super().__init__(node_id, {'x': int(location_x), 'y': int(location_y)}, host, int(port), [], 999999999999)
+class NetworkVisualizer(RoverRadio):
+    def __init__(self, node_id, host, port, location_x, location_y, encryption_key):
+        super().__init__(node_id, {'x': int(location_x), 'y': int(location_y)}, host, int(port), [], 999999999999,
+                         encryption_key)
 
         self.rover_locations = {}
 
-    def _handle_request(self, message, client_address):
-        # print('[DEBU] Received message from', client_address[0] + ':' + str(client_address[1]) +
-        #       ':', message, flush=True)
+    def _handle_decrypted_request(self, message, client_address):
+        print('[DEBU] Received message from', client_address[0] + ':' + str(client_address[1]) +
+              ':', message, flush=True)
         self.rover_locations[message['emitter']] = message['location']
 
     # Assumes map of 3000x3000 in chunks of 125x125

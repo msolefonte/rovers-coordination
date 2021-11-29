@@ -1,12 +1,12 @@
 import sys
-from Rover import Rover
+from utils.Rover import Rover
 from time import sleep
 
 
 def main():
     print('[INFO] Rover started with args', sys.argv[1:], flush=True)
-    rover_id, host, port, known_peers, coordinates, speed, radio_range = sys.argv[1:]
-    rover = Rover(rover_id, host, int(port), known_peers, coordinates, int(speed), int(radio_range))
+    rover_id, host, port, known_peers, coordinates, speed, radio_range, encryption_key = sys.argv[1:]
+    rover = Rover(rover_id, host, int(port), known_peers, coordinates, int(speed), int(radio_range), encryption_key)
     rover.start()
 
     while True:
