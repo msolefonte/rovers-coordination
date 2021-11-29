@@ -16,8 +16,9 @@ def main():
         try:
             rover.heartbeat()
             if rover_id == 'rover3':
-                rover.broadcast_message_to('hello', 'rover5')
-                rover.save_data('check_save',host)
+                rover.broadcast_request('hello','rover5')
+                rover.broadcast_request('hello_earth','earth-station')
+                
         except SystemError:
             pass  # Networking disabled due to low battery in the rover
 

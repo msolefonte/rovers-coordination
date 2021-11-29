@@ -3,18 +3,10 @@ import socket
 import time
 import threading
 import uuid
-import os
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.backends import default_backend
+
 
 
 class SDNNode:
-
-    private_key = 856 #Manu
-    private_iv = 154  #Manu
-    private_network_key = 'rover_pwd'
-    public_network_key =  'externals'
-
 
 
     def __init__(self, node_id, location, host, port, known_peers, radio_range):
@@ -45,48 +37,7 @@ class SDNNode:
                self.radio_range
 
 
-    # Encryption and Decryption of messags for security
-    def encrypt_message(msg,keynum,ivnum,external=False):
-        backend = default_backend()
-        key = keynum.to_bytes(16,'big')
-        iv = ivnum.to_bytes(16,'big')
-        cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
-        encryptor = cipher.encryptor()
-        padded_msg = str.encode(msg+(16-(len(msg)%16))*' ')
-        ct = encryptor.update(padded_msg) + encryptor.finalize()
-        if external ==False:
-            ct=str.encode(SDNNode.private_network_key+ct.hex())
-        else:
-            ct=str.encode(SDNNode.public_network_key+ct.hex())
-        return ct
-
-
-    def decrypt_message(ct,keynum,ivnum):
-        backend = default_backend()
-        try:
-            key = keynum.to_bytes(16,'big')
-            iv = ivnum.to_bytes(16,'big')
-        except Exception as e:
-            print('[WARN] [SDN] Invalid key provided by rover', e, flush=True)
-        try:
-            cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
-            decryptor = cipher.decryptor()
-            st= ct.decode()
-            ct_key = st[:9]
-            ct_value = ''
-            msg =''
-            msg_decoded= ''
-            if (ct_key == SDNNode.private_network_key) or (ct_key == SDNNode.public_network_key):
-                ct_value = bytes.fromhex(st[9:])
-                msg = decryptor.update(ct_value) + decryptor.finalize()
-                msg_decoded = str(msg,'utf-8')
-            else:
-                msg_decoded =st
-                #print('[WARN] [SDN] Unautorized message, ignoring the message:'+st)
-        except Exception as e:
-            print('[WARN] [SDN] Invalid encryptions (possible injections), ignoring the message', e, flush=True)    
-        return ct_key , msg_decoded
-
+   
 
     
     @staticmethod
@@ -98,10 +49,10 @@ class SDNNode:
                     time.sleep(backoff)
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as soc:
                     soc.connect((host, int(port)))
-                    #soc.sendall(str.encode(message))
-                    soc.sendall(SDNNode.encrypt_message(message,__class__.private_key,__class__.private_iv)) #Manu
-                    #data = soc.recv(1024).decode()
-                    data = SDNNode.decrypt_message(soc.recv(1024),__class__.private_key,__class__.private_iv)[1] #Manu
+                    soc.sendall(str.encode(message))
+                    #soc.sendall(SDNNode.encrypt_message(message,__class__.private_key,__class__.private_iv)) #Manu
+                    data = soc.recv(1024).decode()
+                    #data = SDNNode.decrypt_message(soc.recv(1024),__class__.private_key,__class__.private_iv)[1] #Manu
                     if data == 'TOO_FAR_AWAY':  # Simulates it is out of physical range. Assume connection refused.
                         raise ConnectionError('Connection refused by ', host + ':' + port)
             except ConnectionError:
@@ -137,14 +88,15 @@ class SDNNode:
                 connection, client_address = soc.accept()
                 try:
                     data = connection.recv(1024)
-                    #message = json.loads(data.decode())
-                    message = json.loads(SDNNode.decrypt_message(data,__class__.private_key,__class__.private_iv)[1]) #Manu
+                    message = json.loads(data.decode())
+                    #message = json.loads(SDNNode.decrypt_message(data,__class__.private_key,__class__.private_iv)[1]) #Manu
                     if data and message['location']:
                         # Simulates it is out of physical range. Basically refuses connection.
                         if self.networking_disabled or self._is_too_far_away(message['location']) :
-                            #connection.sendall('TOO_FAR_AWAY'.encode())
-                            connection.sendall(SDNNode.encrypt_message('TOO_FAR_AWAY',__class__.private_key,__class__.private_iv))  #Manu
+                            connection.sendall('TOO_FAR_AWAY'.encode())
+                            #connection.sendall(SDNNode.encrypt_message('TOO_FAR_AWAY',__class__.private_key,__class__.private_iv))  #Manu
                         else:
+                            
                             threading.Thread(
                                 target=lambda: self._handle_request(message, client_address)).start()
                 finally:
@@ -191,28 +143,5 @@ class SDNNode:
     def heartbeat(self):
         self.broadcast(json.dumps({'type': 'heartbeat'}))
 
-    def save_data(self, message,host, port=7101):
-        sender_id = self.node_id
-        threading.Thread(
-                    target=lambda: self.store_data(host, port, message,sender_id)
-                ).start()
-        
-    def store_data(self,host, port, message,sender_id):
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as soc:
-                soc.connect((host, int(port)))
-                #soc.sendall(str.encode(message))
-                complete_msg = json.dumps({
-                'type': 'data',
-                'message': message,
-                'sender': sender_id
-            })
-                soc.sendall(SDNNode.encrypt_message(complete_msg,__class__.private_key,__class__.private_iv)) #Manu
-                print('[INFO] Data sent for storing', flush=True)
-                
-        except ConnectionError:
-            pass
-        except Exception as e:
-            print('[WARN] [SDN] Error trying to reach Data Storage', flush=True)
-
+    
     
