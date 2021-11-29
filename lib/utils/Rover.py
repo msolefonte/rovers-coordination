@@ -62,9 +62,9 @@ class Rover(SDNNode):
                 if turns_spent_recharging >= 3:
                     self.low_battery_mode = False
                     self.networking_disabled = False
-                    # print('[INFO] Battery recharged. Low battery mode disabled', flush=True)
+                    print('[INFO] Battery recharged. Low battery mode disabled', flush=True)
             elif random.randint(0, 100) < 5:
-                # print('[INFO] Battery low. Deploying solar panels', flush=True)
+                print('[INFO] Battery low. Deploying solar panels', flush=True)
                 self.low_battery_mode = True
                 self.networking_disabled = True
 
@@ -72,9 +72,9 @@ class Rover(SDNNode):
                 turns_spent_recharging = 0
                 if self.movement_enabled:
                     self._move()
-                    # print('[INFO] Rover moved to new location', flush=True)
+                    print('[INFO] Rover moved to new location', flush=True)
             else:
-                # print('[INFO] Recharging...', flush=True)
+                print('[INFO] Recharging...', flush=True)
                 turns_spent_recharging += 1
             
             if(self.leader != self.node_id and self.is_election_going_on == False):
