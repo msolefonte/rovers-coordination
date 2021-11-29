@@ -29,6 +29,12 @@ class Rover(RoverRadio):
         # Status
         self.movement_enabled = True
         self.low_battery_mode = False
+        
+        # Coordination
+        self.election_start_time = 0.0
+        self.is_election_going_on = False
+        self.known_rovers = []
+        self.leader_id = ''
 
     def _move(self):
         x_movement = random.randint(0, self.max_speed) * (1 if random.random() < 0.5 else -1)
@@ -66,20 +72,23 @@ class Rover(RoverRadio):
                 if self.movement_enabled:
                     self._move()
                     print('[INFO] Rover moved to new location', flush=True)
-                    # print('[DEBU] Positioning System lecture:', self.location, flush=True)
-                    # print('[DEBU] Speedometer lecture:', self.speedometer, flush=True)
             else:
                 print('[INFO] Recharging...', flush=True)
                 turns_spent_recharging += 1
-            time.sleep(30)
+            
+            if(self.leader_id != self.node_id and self.is_election_going_on == False):
+                self._start_election()
+            print('[INFO] Current Leader is:',self.leader_id)
+            time.sleep(20)
 
     def _handle_decrypted_request(self, message, client_address):
         # print('[DEBU] Received message from', client_address[0] + ':' + str(client_address[1]) +
         #      ':', message, flush=True)
-
         content = json.loads(message['content'])
-        if content['type'] == 'heartbeat':
-            pass  # Good to know I guess. Maybe useful for something
+        emitter = message['emitter']
+
+        if content['type'] == 'heartbeat' and emitter[-1] not in self.known_rovers:
+            self.known_rovers.append(emitter[-1])
         elif content['type'] == 'target' and content['nonce'] not in self.consumed_nonces.keys():
             self.consumed_nonces[content['nonce']] = time.time()
             if content['to'] == self.node_id:
@@ -87,10 +96,49 @@ class Rover(RoverRadio):
             else:
                 ttl = content['ttl'] - 1
                 if ttl >= 0:
-                    self.broadcast_message_to(content['message'], content['to'], content['reply_to'],
-                                              content['nonce'], ttl)
+        self._handle_election(message)
+
+    def _handle_election(self, message):
+        content = json.loads(message['content'])
+    
+        if content['type'] == 'target' and content['message'] == 'election' and content['to']==self.node_id:
+            print('[DEBU] Election in process. Reporting availability to be elected')
+            self.is_election_going_on = True
+            self.broadcast_message_to('available', content['reply_to'], self.node_id)  # Broadcast I am available to be elected
+            self._start_election()
+        
+        if content['type'] == 'target' and content['message'] == 'available' and content['to']==self.node_id:
+            self.election_start_time = 0
+            print('[DEBU] Leader election lost.')
+        
+        if self.election_start_time != 0 and self.election_start_time+30 < time.time():
+            self.broadcast(json.dumps({'type': 'election_winner','id':self.node_id}))  # Broadcast I am a Leader
+            self.leader_id = self.node_id
+            self.is_election_going_on = False
+        
+        if content['type'] == 'election_winner':
+            self.leader_id = content['id']
+            self.is_election_going_on = False
+            print('[INFO] I won election!')
 
     def start(self):
         threading.Thread(target=self._start_server).start()
         if self.node_id != 'network-visualizer':
             threading.Thread(target=self._start_engine).start()
+
+    def _start_election(self):
+        print('[INFO] Leader election started')
+        own_id = self.node_id[-1]
+        i_am_the_best_leader_available = True
+        self.is_election_going_on = True
+            
+        self.election_start_time = time.time()
+        for index, rover_id in enumerate(self.known_rovers):
+            if rover_id <= own_id:
+                i_am_the_best_leader_available = False
+                print('[DEBU] Sending election message to:', rover_id)
+                self.broadcast_message_to('election', rover_id, self.node_id)
+        if i_am_the_best_leader_available:
+            self.broadcast(json.dumps({'type': 'election_winner', 'id':self.node_id}))
+            self.leader_id = self.node_id
+            self.is_election_going_on = False
