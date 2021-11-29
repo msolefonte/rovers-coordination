@@ -13,6 +13,8 @@ class Sensors():
         self.max_speed = max_speed
          # Sensors
         self.all_sensors = list()
+        self.messages = list()
+        
         self.speedometer = list()
         self.location = list()
         self.temperature = list()
@@ -93,7 +95,12 @@ class Sensors():
         last_wind_direction = self._get_wind_direction()
         
         self.all_sensors.append([self.last_location['x'], self.last_location['y'],
-                                 last_temperature, last_pressure, last_wind_speed, last_wind_direction])
+                         last_temperature, last_pressure, last_wind_speed, last_wind_direction])
+        
+        self.messages.append({"location(x)" : self.last_location['x'],
+                         "location(y)" : self.last_location['y'],
+                         "temperature:" : last_temperature, "pressure:" : last_pressure, 
+                         "wind_speed:" : last_wind_speed, "wind_direction:" : last_wind_direction})
         
     def k_means(self):
         
