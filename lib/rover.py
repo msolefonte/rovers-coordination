@@ -1,6 +1,6 @@
 import sys
-from Rover import Rover
 from time import sleep
+from utils.Rover import Rover
 
 
 def main():
