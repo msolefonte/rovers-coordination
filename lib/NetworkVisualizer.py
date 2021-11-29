@@ -23,7 +23,7 @@ class NetworkVisualizer(SDNNode):
                 mars_map[int(self.rover_locations[rover]['x'] / 125)][int(self.rover_locations[rover]['y'] / 125)] = \
                     rover[-1]
 
-            map_string = '--' * 24 + '\n'
+            map_string = '--' * 23 + '\n'
             for line in mars_map:
                 map_string += ' '.join(line) + '\n'
             print(map_string[:-1], flush=True)
