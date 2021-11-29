@@ -25,8 +25,7 @@ class Rover(SDNNode):
         # Sensors
         self.max_speed = max_speed
         self.speedometer = {'x': 0, 'y': 0}
-        
-        self.sensor = Sensors()
+        self.sensors = Sensors()
         
         # Status
         self.movement_enabled = True
@@ -93,6 +92,6 @@ class Rover(SDNNode):
 
     def start(self):
         threading.Thread(target=self._start_server).start()
-        threading.Thread(target=self.sensor.update()).start()
+        threading.Thread(target=self.sensors.update()).start()
         if self.node_id != 'network-visualizer':
             threading.Thread(target=self._start_engine).start()
