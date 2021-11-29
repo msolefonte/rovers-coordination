@@ -3,7 +3,6 @@ import time
 from utils.SDNNode import SDNNode
 
 
-
 class NetworkVisualizer(SDNNode):
     def __init__(self, node_id, host, port, location_x, location_y):
         super().__init__(node_id, {'x': int(location_x), 'y': int(location_y)}, host, int(port), [], 999999999999)
@@ -21,7 +20,6 @@ class NetworkVisualizer(SDNNode):
             time.sleep(30)
             mars_map = [['x'] * 24 for _ in range(24)]
             for rover in self.rover_locations:
-                print(rover)
                 mars_map[int(self.rover_locations[rover]['x'] / 125)][int(self.rover_locations[rover]['y'] / 125)] = \
                     rover[-1]
 
