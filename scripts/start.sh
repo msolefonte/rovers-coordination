@@ -2,7 +2,7 @@
 
 mkdir -p /tmp/p3/logs
 
-hostname=$(hostname | awk '{print $1}')
+hostname=$(hostname -I | awk '{print $1}')
 
 python3 lib/rover.py rover0 ${hostname} 7000 ${hostname}:7001,${hostname}:7002,${hostname}:7003,${hostname}:7004,${hostname}:7005,${hostname}:7006,${hostname}:7007,${hostname}:7008,${hostname}:7100 0,0,999,999 20 1500 1,2,3,4,5,6,7,8> /tmp/p3/logs/rover0.log 2>&1 &
 python3 lib/rover.py rover1 ${hostname} 7001 ${hostname}:7000,${hostname}:7002,${hostname}:7003,${hostname}:7004,${hostname}:7005,${hostname}:7006,${hostname}:7007,${hostname}:7008,${hostname}:7100 0,1000,999,1999 20 1500 0,2,3,4,5,6,7,8 1> /tmp/p3/logs/rover1.log 2>&1 &
