@@ -14,4 +14,4 @@ python3 lib/rover.py rover6 ${hostname} 7006 ${hostname}:7000,${hostname}:7001,$
 python3 lib/rover.py rover7 ${hostname} 7007 ${hostname}:7000,${hostname}:7001,${hostname}:7002,${hostname}:7003,${hostname}:7004,${hostname}:7005,${hostname}:7006,${hostname}:7008,${hostname}:7100 2000,1000,2999,1999 20 1500 0,1,2,3,4,5,6,8 1> /tmp/p3/logs/rover7.log 2>&1 &
 python3 lib/rover.py rover8 ${hostname} 7008 ${hostname}:7000,${hostname}:7001,${hostname}:7002,${hostname}:7003,${hostname}:7004,${hostname}:7005,${hostname}:7006,${hostname}:7007,${hostname}:7100 2000,2000,2999,2999 20 1500 0,1,2,3,4,5,6,7 1> /tmp/p3/logs/rover8.log 2>&1 &
 
-python3 lib/networkVisualizer.py network-visualizer Swagats-MacBook-Air.local 7100 0 0 1> /tmp/p3/logs/network-visualizer.log 2>&1 &
+python3 lib/networkVisualizer.py network-visualizer ${hostname} 7100 0 0 1> /tmp/p3/logs/network-visualizer.log 2>&1 &
