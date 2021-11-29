@@ -29,13 +29,12 @@ class Rover(SDNNode):
         # Status
         self.movement_enabled = True
         self.low_battery_mode = False
-        # self.is_leader = False
-        self.is_election_going_on = False
+        
+        # Coordination
         self.election_start_time = 0.0
+        self.is_election_going_on = False
+        self.known_rovers = []
         self.leader_id = ''
-
-        #Peer IDs
-        self.peers = []
 
     def _move(self):
         x_movement = random.randint(0, self.max_speed) * (1 if random.random() < 0.5 else -1)
@@ -88,8 +87,8 @@ class Rover(SDNNode):
         content = json.loads(message['content'])
         emitter = message['emitter']
 
-        if content['type'] == 'heartbeat' and emitter[-1] not in self.peers:
-            self.peers.append(emitter[-1])
+        if content['type'] == 'heartbeat' and emitter[-1] not in self.known_rovers:
+            self.known_rovers.append(emitter[-1])
         elif content['type'] == 'target' and content['nonce'] not in self.consumed_nonces.keys():
             self.consumed_nonces[content['nonce']] = time.time()
             if content['to'] == self.node_id:
@@ -103,25 +102,25 @@ class Rover(SDNNode):
     def _handle_election(self, message):
         content = json.loads(message['content'])
     
-        if content['type'] == 'target' and content['message'] == 'Election' and content['to']==self.node_id:
-            print('[DEBUG] Available to be elected')
+        if content['type'] == 'target' and content['message'] == 'election' and content['to']==self.node_id:
+            print('[DEBU] Election in process. Reporting availability to be elected')
             self.is_election_going_on = True
-            self.broadcast_message_to('Available', content['reply_to'], self.node_id) #Broadcast I am available to be elected
+            self.broadcast_message_to('available', content['reply_to'], self.node_id)  # Broadcast I am available to be elected
             self._start_election()
         
-        if content['type'] == 'target' and content['message'] == 'Available' and content['to']==self.node_id:
+        if content['type'] == 'target' and content['message'] == 'available' and content['to']==self.node_id:
             self.election_start_time = 0
-            print('[INFO] I am ',self.node_id,'.I lost the Election!! :(')
+            print('[DEBU] Leader election lost.')
         
         if self.election_start_time != 0 and self.election_start_time+30 < time.time():
-            self.broadcast(json.dumps({'type': 'election_winner','id':self.node_id})) #Broadcast I am a Leader
+            self.broadcast(json.dumps({'type': 'election_winner','id':self.node_id}))  # Broadcast I am a Leader
             self.leader_id = self.node_id
             self.is_election_going_on = False
         
         if content['type'] == 'election_winner':
             self.leader_id = content['id']
             self.is_election_going_on = False
-            print('[DEBUG] I won election!!',content['id'])
+            print('[INFO] I won election!')
 
     def start(self):
         threading.Thread(target=self._start_server).start()
@@ -129,18 +128,18 @@ class Rover(SDNNode):
             threading.Thread(target=self._start_engine).start()
 
     def _start_election(self):
-        print('Starting Election!')
+        print('[INFO] Leader election started')
         own_id = self.node_id[-1]
-        is_any_contender = True
-        for index, peer_id in enumerate(self.peers):
-            # print('[DEBUG]peer port for:', index, 'and id',peer_id,' is:',self.known_peers[index].split(':')[1])
-            if peer_id <= own_id:
-                is_any_contender = False
-                self.is_election_going_on = True
-                print('Sending election message from:',self.node_id,'to:',peer_id)
-                self.broadcast_message_to('Election', peer_id, self.node_id)
-                self.election_start_time = time.time() #Set the start time of election
-        if(is_any_contender):
-            self.broadcast(json.dumps({'type': 'election_winner','id':self.node_id})) #Broadcast I am a Leader if there's no peer < self
+        i_am_the_best_leader_available = True
+        self.is_election_going_on = True
+            
+        self.election_start_time = time.time()
+        for index, rover_id in enumerate(self.known_rovers):
+            if rover_id <= own_id:
+                i_am_the_best_leader_available = False
+                print('[DEBU] Sending election message to:', rover_id)
+                self.broadcast_message_to('election', rover_id, self.node_id)
+        if i_am_the_best_leader_available:
+            self.broadcast(json.dumps({'type': 'election_winner', 'id':self.node_id}))
             self.leader_id = self.node_id
             self.is_election_going_on = False
