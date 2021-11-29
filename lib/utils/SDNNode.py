@@ -94,7 +94,6 @@ class SDNNode:
 
     def broadcast(self, message):
         if not self.networking_disabled:
-            print('[INFO] Sending a broadcast message', flush=True)
             for peer in self.known_peers:
                 peer_ip, peer_port = peer.split(':')
                 threading.Thread(
