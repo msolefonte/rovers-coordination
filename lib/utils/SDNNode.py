@@ -39,6 +39,7 @@ class SDNNode:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as soc:
                     soc.connect((host, int(port)))
                     soc.sendall(str.encode(message))
+
                     data = soc.recv(1024).decode()
                     if data == 'TOO_FAR_AWAY':  # Simulates it is out of physical range. Assume connection refused.
                         raise ConnectionError('Connection refused by ', host + ':' + port)
@@ -76,9 +77,9 @@ class SDNNode:
                 try:
                     data = connection.recv(1024)
                     message = json.loads(data.decode())
-                    if data and message['location']:
+                    if data:
                         # Simulates it is out of physical range. Basically refuses connection.
-                        if self.networking_disabled or self._is_too_far_away(message['location']) :
+                        if self.networking_disabled or self._is_too_far_away(message['location']):
                             connection.sendall('TOO_FAR_AWAY'.encode())
                         else:
                             threading.Thread(
