@@ -4,24 +4,15 @@ import math
 
 class Sensors():
     
-    def __init__(self, operation_area, max_speed):
-        self.operation_area = [
-            [int(operation_area.split(',')[0]), int(operation_area.split(',')[1])],
-            [int(operation_area.split(',')[2]), int(operation_area.split(',')[3])]
-        ]
-        
-        self.max_speed = max_speed
-         # Sensors
+    def __init__(self):
+
         self.all_sensors = list()
-        self.speedometer = list()
-        self.location = list()
+        self.messages = list()
+        
         self.temperature = list()
         self.pressure = list()
         self.wind_speed = list()
         self.wind_direction = list()
-        
-        self.last_speedometer = {'x': 0, 'y': 0}
-        self.last_location = {'x': 0, 'y': 0}
         
         # BIAS SENSORs
         
@@ -30,27 +21,6 @@ class Sensors():
         
         # K_means
         self.label = None
-        
-    def _move(self):
-        x_movement = random.randint(0, self.max_speed) * (1 if random.random() < 0.5 else -1)
-        y_movement = random.randint(0, self.max_speed) * (1 if random.random() < 0.5 else -1)
-
-        if self.last_location['x'] + x_movement < self.operation_area[0][0]:
-            x_movement = self.operation_area[0][0] - self.last_location['x']
-        if self.last_location['x'] + x_movement > self.operation_area[1][0]:
-            x_movement = self.operation_area[1][0] - self.last_location['x']
-        if self.last_location['y'] + y_movement < self.operation_area[0][1]:
-            y_movement = self.operation_area[0][1] - self.last_location['y']
-        if self.last_location['y'] + y_movement > self.operation_area[1][1]:
-            y_movement = self.operation_area[1][1] - self.last_location['y']
-
-        self.last_location = {'x': self.last_location['x'] + x_movement,
-                              'y': self.last_location['y'] + y_movement}
-        self.last_speedometer = {'x': x_movement, 'y': y_movement}
-        
-        self.location.append(self.last_location)
-        self.speedometer.append(self.last_speedometer)
-        
         
     def _get_temperature(self):
         
@@ -86,14 +56,15 @@ class Sensors():
     
     def update(self):
         
-        self._move()
         last_temperature = self._get_temperature()
         last_pressure = self._get_pressure()
         last_wind_speed = self._get_wind_speed()
         last_wind_direction = self._get_wind_direction()
         
-        self.all_sensors.append([self.last_location['x'], self.last_location['y'],
-                                 last_temperature, last_pressure, last_wind_speed, last_wind_direction])
+        self.all_sensors.append([last_temperature, last_pressure, last_wind_speed, last_wind_direction])
+        
+        self.messages.append({"temperature:" : last_temperature, "pressure:" : last_pressure,
+                              "wind_speed:" : last_wind_speed, "wind_direction:" : last_wind_direction})
         
     def k_means(self):
         
