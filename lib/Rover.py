@@ -27,7 +27,7 @@ class Rover(SDNNode):
         self.speedometer = {'x': 0, 'y': 0}
         
         self.sensor = Sensors()
-
+        
         # Status
         self.movement_enabled = True
         self.low_battery_mode = False
