@@ -81,7 +81,6 @@ class Rover(RoverRadio):
 
     def _start_election(self):
         print('[INFO] Leader election started')
-        self.i_am_the_best_leader_available = True
         self.is_election_going_on = True
 
         self.election_start_time = time.time()
@@ -89,6 +88,7 @@ class Rover(RoverRadio):
         self._wait_for_election_results()
 
     def _wait_for_election_results(self):
+        self.i_am_the_best_leader_available = True
         time.sleep(30)
 
         if self.i_am_the_best_leader_available:
@@ -96,6 +96,8 @@ class Rover(RoverRadio):
             self.broadcast({'type': 'victory', 'emitter': self.node_id})
             self.leader_id = self.node_id
             self.is_election_going_on = False
+        else:
+            print('[DEBU] There are better candidates to win the election')
 
     def _check_leadership(self):
         time.sleep(60)
