@@ -2,7 +2,6 @@ import json
 import socket
 import time
 import threading
-import uuid
 
 
 class SDNNode:
@@ -21,7 +20,6 @@ class SDNNode:
         # Status
         self.location = location
         self.networking_disabled = False
-        self.consumed_nonces = {}  # {nonce: timestamp}
 
     # Simulation
 
@@ -73,8 +71,9 @@ class SDNNode:
 
             soc.listen(1)
             while True:
-                connection, client_address = soc.accept()
+                connection = None
                 try:
+                    connection, client_address = soc.accept()
                     data = connection.recv(1024)
                     message = json.loads(data.decode())
                     if data:
@@ -84,8 +83,11 @@ class SDNNode:
                         else:
                             threading.Thread(
                                 target=lambda: self._handle_request(message, client_address)).start()
+                except Exception as e:
+                    print('[WARN] [SDN] Error listening:', e)
                 finally:
-                    connection.close()
+                    if connection:
+                        connection.close()
         finally:
             soc.close()
 
@@ -96,34 +98,10 @@ class SDNNode:
 
     def broadcast(self, message):
         if not self.networking_disabled:
-            print('[INFO] Sending a broadcast message', flush=True)
             for peer in self.known_peers:
                 peer_ip, peer_port = peer.split(':')
                 threading.Thread(
-                    target=lambda: self._send_message_to_known_peer_no_error(peer_ip, peer_port, message)
+                    target=lambda: self._send_message_to_known_peer_no_error(peer_ip, peer_port, message, 1)
                 ).start()
         else:
             raise SystemError('Broadcasting disabled')
-
-    def broadcast_message_to(self, message, target_id, reply_to_id=None, nonce=None, ttl=16):
-        if not self.networking_disabled:
-            nonce = nonce if nonce else uuid.uuid4().hex
-            reply_to_id = reply_to_id if reply_to_id else self.node_id
-
-            print('[INFO] Broadcasting message targeting', target_id + '. (Origin', reply_to_id + ')')
-
-            self.broadcast(json.dumps({
-                'type': 'target',
-                'message': message,
-                'to': target_id,
-                'reply_to': reply_to_id if reply_to_id else self.node_id,
-                'nonce': nonce,
-                'ttl': ttl
-            }))
-
-            self.consumed_nonces[nonce] = time.time()
-        else:
-            raise SystemError('Broadcasting disabled')
-
-    def heartbeat(self):
-        self.broadcast(json.dumps({'type': 'heartbeat'}))
