@@ -1,4 +1,5 @@
 import json
+import random
 import time
 import uuid
 from .Encryptor import Encryptor
@@ -15,6 +16,9 @@ class RoverRadio(SDNNode):
         nonce = nonce if nonce else uuid.uuid4().hex
         message['nonce'] = nonce
         message['ttl'] = ttl
+
+        # Artificial sleep to prevent all nodes broadcasting at the same time
+        time.sleep(random.randint(0, 20) * 0.1)
 
         super().broadcast(self.encryptor.encrypt(json.dumps(message)))
         self.consumed_nonces[nonce] = time.time()

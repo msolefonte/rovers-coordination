@@ -101,7 +101,7 @@ class SDNNode:
             for peer in self.known_peers:
                 peer_ip, peer_port = peer.split(':')
                 threading.Thread(
-                    target=lambda: self._send_message_to_known_peer_no_error(peer_ip, peer_port, message)
+                    target=lambda: self._send_message_to_known_peer_no_error(peer_ip, peer_port, message, 1)
                 ).start()
         else:
             raise SystemError('Broadcasting disabled')
