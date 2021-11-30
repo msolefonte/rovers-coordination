@@ -81,13 +81,12 @@ class Rover(RoverRadio):
                 turns_spent_recharging += 1
             time.sleep(20)
 
-    def _start_election(self):
-        print('[INFO] Leader election started')
-        self.is_election_going_on = True
-
-        self.election_start_time = time.time()
-        self.broadcast({'type': 'election', 'emitter': self.node_id})
-        self._wait_for_election_results()
+    def _start_sensors(self):
+        while True:
+            self.sensors.update()
+            print('[INFO] Engine Sensors:', {'positioning-system': self.location, 'speedometer': self.speedometer})
+            # print('[INFO] Sensors KMeans:', self.sensors.k_means())
+            time.sleep(20)
 
     def _wait_for_election_results(self):
         self.i_am_the_best_leader_available = True
@@ -100,6 +99,14 @@ class Rover(RoverRadio):
             self.is_election_going_on = False
         else:
             print('[DEBU] There are better candidates to win the election')
+
+    def _start_election(self):
+        print('[INFO] Leader election started')
+        self.is_election_going_on = True
+
+        self.election_start_time = time.time()
+        self.broadcast({'type': 'election', 'emitter': self.node_id})
+        self._wait_for_election_results()
 
     def _check_leadership(self):
         time.sleep(60)
@@ -169,5 +176,5 @@ class Rover(RoverRadio):
     def start(self):
         threading.Thread(target=self._start_server).start()
         threading.Thread(target=self._start_engine).start()
-        threading.Thread(target=self.sensors.update()).start()
+        threading.Thread(target=self._start_sensors).start()
         threading.Thread(target=self._check_leadership).start()
