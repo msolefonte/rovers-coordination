@@ -3,6 +3,7 @@ import random
 import threading
 import time
 from .RoverRadio import RoverRadio
+from .Sensors import Sensors
 
 
 class Rover(RoverRadio):
@@ -25,6 +26,7 @@ class Rover(RoverRadio):
         # Sensors
         self.max_speed = max_speed
         self.speedometer = {'x': 0, 'y': 0}
+        self.sensors = Sensors()
 
         # Status
         self.movement_enabled = True
@@ -167,4 +169,5 @@ class Rover(RoverRadio):
     def start(self):
         threading.Thread(target=self._start_server).start()
         threading.Thread(target=self._start_engine).start()
+        threading.Thread(target=self.sensors.update()).start()
         threading.Thread(target=self._check_leadership).start()
