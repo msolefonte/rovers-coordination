@@ -71,8 +71,9 @@ class SDNNode:
 
             soc.listen(1)
             while True:
-                connection, client_address = soc.accept()
+                connection = None
                 try:
+                    connection, client_address = soc.accept()
                     data = connection.recv(1024)
                     message = json.loads(data.decode())
                     if data:
@@ -82,8 +83,11 @@ class SDNNode:
                         else:
                             threading.Thread(
                                 target=lambda: self._handle_request(message, client_address)).start()
+                except Exception as e:
+                    print('[WARN] [SDN] Error listening:', e)
                 finally:
-                    connection.close()
+                    if connection:
+                        connection.close()
         finally:
             soc.close()
 
@@ -94,7 +98,6 @@ class SDNNode:
 
     def broadcast(self, message):
         if not self.networking_disabled:
-            print('[INFO] Sending a broadcast message', flush=True)
             for peer in self.known_peers:
                 peer_ip, peer_port = peer.split(':')
                 threading.Thread(

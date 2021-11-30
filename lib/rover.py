@@ -10,11 +10,11 @@ def main():
     rover.start()
 
     while True:
-        sleep(5)
+        sleep(15)
         try:
             rover.heartbeat()
-            if rover_id == 'rover8':
-                rover.broadcast_message_to('hello', 'rover0')
+    #         if rover_id == 'rover8':
+    #             rover.broadcast_message_to('hello', 'rover0')
         except SystemError:
             pass  # Networking disabled due to low battery in the rover
 
