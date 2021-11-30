@@ -9,14 +9,14 @@ def main():
     rover = Rover(rover_id, host, int(port), known_peers, coordinates, int(speed), int(radio_range), encryption_key)
     rover.start()
 
-    # while True:
-    #     sleep(5)
-    #     try:
-    #         rover.heartbeat()
+    while True:
+        sleep(15)
+        try:
+            rover.heartbeat()
     #         if rover_id == 'rover8':
     #             rover.broadcast_message_to('hello', 'rover0')
-    #     except SystemError:
-    #         pass  # Networking disabled due to low battery in the rover
+        except SystemError:
+            pass  # Networking disabled due to low battery in the rover
 
 
 main()

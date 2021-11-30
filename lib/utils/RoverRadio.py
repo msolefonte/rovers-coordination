@@ -23,7 +23,7 @@ class RoverRadio(SDNNode):
         if not self.networking_disabled:
             reply_to_id = reply_to_id if reply_to_id else self.node_id
 
-            print('[INFO] Broadcasting message targeting', target_id + '. (Origin', reply_to_id + ')')
+            # print('[DEBU] Broadcasting message targeting', target_id + '. (Origin', reply_to_id + ')')
 
             self.broadcast({
                 'type': 'targeted-broadcast',
