@@ -96,7 +96,7 @@ class SDNNode:
     def _handle_request(self, message, client_address):
         raise NotImplementedError
 
-    def broadcast(self, message, noerr=False):
+    def _broadcast(self, message, noerr=False):
         if not self.networking_disabled:
             for peer in self.known_peers:
                 peer_ip, peer_port = peer.split(':')
