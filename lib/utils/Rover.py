@@ -101,15 +101,18 @@ class Rover(RoverRadio, RoverEngine, RoverSensors):
 
     # # Handle election in process
 
+    def _rebroadcast_election(self):
+        for rover in list(self.known_rovers):
+            if rover[-1] < self.node_id[-1]:
+                self.broadcast_message_to('election-propagation', rover, self.node_id, noerr=True)
+
     def _handle_election_start(self, content):
         if content['type'] == 'election':
             print('[INFO] Election in process')
             self.is_election_going_on = True
             if self.node_id[-1] < content['emitter'][-1]:
                 self.broadcast_message_to('election-reply', content['emitter'], self.node_id, noerr=True)
-            for rover in list(self.known_rovers):
-                if rover[-1] < self.node_id[-1]:
-                    self.broadcast_message_to('election-propagation', rover, self.node_id, noerr=True)
+            self._rebroadcast_election()
             self._wait_for_election_results()
 
     def _handle_election_propagation(self, content):
