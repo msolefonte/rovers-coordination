@@ -4,7 +4,7 @@
 
 # Rovers Coordination Project
 
-Wireless coordination algorithms applied to Mars rovers. Environment simulated on top of a Software Defined Network.
+Wireless coordination algorithms applied to Mars rovers.
 
 ## About the project
 
