@@ -1,18 +1,25 @@
+import math
 import numpy as np
 import random
-import math
+import time
+from .constants import SLEEP_TIME_SENSORS
 
 
-class Sensors:
+class RoverSensors:
     def __init__(self):
         self.all_sensors = list()
         self.messages = list()
-        
+
         self.temperature = list()
         self.pressure = list()
         self.wind_speed = list()
         self.wind_direction = list()
-        
+
+        # Engine sensors
+
+        self.location = self.location
+        self.speedometer = self.speedometer
+
         # Bias Sensors
         
         self.air_mean = np.random.normal(-55, 8, 1)[0]
@@ -59,9 +66,6 @@ class Sensors:
         self.all_sensors.append([last_temperature, last_pressure, last_wind_speed, last_wind_direction])
         self.messages.append({"temperature": last_temperature, "pressure": last_pressure,
                               "wind_speed": last_wind_speed, "wind_direction": last_wind_direction})
-
-        if len(self.messages) > 0 and len(self.messages[:-1]) > 0:
-            print('[INFO] Sensors lecture:', self.messages[:-1][0])
         
     def k_means(self):
         try:
@@ -101,3 +105,14 @@ class Sensors:
             return self.label
         except ValueError:
             pass
+
+    def _start_sensors(self):
+        while True:
+            time.sleep(SLEEP_TIME_SENSORS)
+            self.update()
+
+            if len(self.messages) > 0 and len(self.messages[:-1]) > 0:
+                self.messages[:-1][0]['positioning-system'] = self.location
+                self.messages[:-1][0]['speedometer'] = self.speedometer
+                print('[DEBU] Sensors lecture:', self.messages[:-1][0])
+            # print('[INFO] Sensors KMeans:', self.sensors.k_means())

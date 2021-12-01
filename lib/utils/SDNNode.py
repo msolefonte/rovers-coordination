@@ -96,12 +96,12 @@ class SDNNode:
     def _handle_request(self, message, client_address):
         raise NotImplementedError
 
-    def broadcast(self, message):
+    def broadcast(self, message, noerr=False):
         if not self.networking_disabled:
             for peer in self.known_peers:
                 peer_ip, peer_port = peer.split(':')
                 threading.Thread(
                     target=lambda: self._send_message_to_known_peer_no_error(peer_ip, peer_port, message, 1)
                 ).start()
-        else:
+        elif not noerr:
             raise SystemError('Broadcasting disabled')
