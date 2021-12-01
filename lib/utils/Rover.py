@@ -52,6 +52,10 @@ class Rover(RoverRadio, RoverEngine, RoverSensors):
         self.low_battery_mode, self.networking_disabled, self.movement_disabled = False, False, False
         print('[INFO] Battery recharged. Low battery mode disabled', flush=True)
 
+    def _check_battery(self):
+        if random.randint(0, 100) < 5:
+            self._disable_capabilities()
+
     def _start_battery_check(self):
         turns_spent_recharging = 0
         while True:
@@ -59,12 +63,12 @@ class Rover(RoverRadio, RoverEngine, RoverSensors):
                 if turns_spent_recharging >= 3:
                     self._enable_capabilities()
                     turns_spent_recharging = 0
-            elif random.randint(0, 100) < 5:
-                self._disable_capabilities()
+                else:
+                    print('[INFO] Recharging...', flush=True)
+                    turns_spent_recharging += 1
+            else:
+                self._check_battery()
 
-            if self.low_battery_mode:
-                print('[INFO] Recharging...', flush=True)
-                turns_spent_recharging += 1
             time.sleep(SLEEP_TIME_BATTERY)
 
     # Heartbeat
