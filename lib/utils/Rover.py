@@ -17,18 +17,21 @@ class Rover(RoverRadio, RoverEngine, RoverSensors):
     speed - 20
     """
     def __init__(self, rover_id, host, port, known_peers, operation_area, max_speed, radio_range, encryption_key):
+        # Deployment
         self.operation_area = operation_area
         self.location = {
             'x': random.randint(operation_area[0][0], operation_area[1][0]),
             'y': random.randint(operation_area[0][1], operation_area[1][1])
         }
-        self.low_battery_mode = False
 
         # Individual components
-
         RoverRadio.__init__(self, rover_id, self.location, host, port, known_peers, radio_range, encryption_key)
         RoverEngine.__init__(self, operation_area, max_speed)
         RoverSensors.__init__(self)
+
+        # Battery
+        self.low_battery_mode = False
+        self.turns_spent_recharging = 0
 
         # Coordination
         self.is_election_going_on = False
@@ -53,23 +56,20 @@ class Rover(RoverRadio, RoverEngine, RoverSensors):
         print('[INFO] Battery recharged. Low battery mode disabled', flush=True)
 
     def _check_battery(self):
-        if random.randint(0, 100) < 5:
+        if self.low_battery_mode:
+            if self.turns_spent_recharging >= 3:
+                self._enable_capabilities()
+                self.turns_spent_recharging = 0
+            else:
+                print('[INFO] Recharging...', flush=True)
+                self. turns_spent_recharging += 1
+        elif random.randint(0, 100) < 5:
             self._disable_capabilities()
 
     def _start_battery_check(self):
-        turns_spent_recharging = 0
-        # while True:
-        if self.low_battery_mode:
-            if turns_spent_recharging >= 3:
-                self._enable_capabilities()
-                turns_spent_recharging = 0
-            else:
-                print('[INFO] Recharging...', flush=True)
-                turns_spent_recharging += 1
-        else:
+        while True:
             self._check_battery()
-
-        time.sleep(SLEEP_TIME_BATTERY)
+            time.sleep(SLEEP_TIME_BATTERY)
 
     # Heartbeat
 
