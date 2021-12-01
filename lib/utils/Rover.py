@@ -2,11 +2,14 @@ import json
 import random
 import threading
 import time
+from .RoverEngine import RoverEngine
 from .RoverRadio import RoverRadio
-from .Sensors import Sensors
+from .RoverSensors import RoverSensors
+from .constants import SLEEP_TIME_BATTERY, SLEEP_TIME_ELECTION_FIRST, SLEEP_TIME_ELECTION_MAX, \
+    SLEEP_TIME_ELECTION_MIN, SLEEP_TIME_ELECTION_RESULTS, SLEEP_TIME_HEARTBEAT
 
 
-class Rover(RoverRadio):
+class Rover(RoverRadio, RoverEngine, RoverSensors):
     """
     rover_id - id, host - host, port - port
     known_peers = host:port,host:port // For simulation purposes
@@ -14,83 +17,60 @@ class Rover(RoverRadio):
     speed - 20
     """
     def __init__(self, rover_id, host, port, known_peers, operation_area, max_speed, radio_range, encryption_key):
-        self.operation_area = [
-            [int(operation_area.split(',')[0]), int(operation_area.split(',')[1])],
-            [int(operation_area.split(',')[2]), int(operation_area.split(',')[3])]
-        ]
-        super().__init__(rover_id, {
-            'x': random.randint(self.operation_area[0][0], self.operation_area[1][0]),
-            'y': random.randint(self.operation_area[0][1], self.operation_area[1][1])
-        }, host, int(port), known_peers.split(',') if known_peers != '' else [], radio_range, encryption_key)
+        self.operation_area = operation_area
+        self.location = {
+            'x': random.randint(operation_area[0][0], operation_area[1][0]),
+            'y': random.randint(operation_area[0][1], operation_area[1][1])
+        }
 
-        # Sensors
-        self.max_speed = max_speed
-        self.speedometer = {'x': 0, 'y': 0}
-        self.sensors = Sensors()
+        # Individual components
 
-        # Status
-        self.movement_enabled = True
-        self.low_battery_mode = False
+        RoverRadio.__init__(self, rover_id, self.location, host, port, known_peers, radio_range, encryption_key)
+        RoverEngine.__init__(self, operation_area, max_speed)
+        RoverSensors.__init__(self)
 
         # Coordination
         self.is_election_going_on = False
         self.i_am_the_best_leader_available = False
-        self.known_rovers = {}
+        self.known_rovers = {}  # {rover_id: timestamp}
         self.leader_id = None
 
-    def _move(self):
-        x_movement = random.randint(0, self.max_speed) * (1 if random.random() < 0.5 else -1)
-        y_movement = random.randint(0, self.max_speed) * (1 if random.random() < 0.5 else -1)
-
-        if self.location['x'] + x_movement < self.operation_area[0][0]:
-            x_movement = self.operation_area[0][0] - self.location['x']
-        if self.location['x'] + x_movement > self.operation_area[1][0]:
-            x_movement = self.operation_area[1][0] - self.location['x']
-        if self.location['y'] + y_movement < self.operation_area[0][1]:
-            y_movement = self.operation_area[0][1] - self.location['y']
-        if self.location['y'] + y_movement > self.operation_area[1][1]:
-            y_movement = self.operation_area[1][1] - self.location['y']
-
-        self.location = {'x': self.location['x'] + x_movement, 'y': self.location['y'] + y_movement}
-        self.speedometer = {'x': x_movement, 'y': y_movement}
-
-    def _start_engine(self):
+    """
+    The battery has a 5% probability of getting empty. Once empty, the rover enters in the low battery mode and spends 
+    three turns in the same location, disables networking and, if it was, stops acting as a leader.
+    """
+    def _start_battery_check(self):
         turns_spent_recharging = 0
         while True:
-            # The battery has a 5% probability of getting empty. Once empty, the rover enters in the low battery mode
-            # and spends three turns in the same location, disables networking and, if it was, stops acting as a leader.
             if self.low_battery_mode:
                 if turns_spent_recharging >= 3:
-                    self.low_battery_mode = False
-                    self.networking_disabled = False
+                    self.low_battery_mode, self.networking_disabled, self.movement_disabled = False, False, False
                     print('[INFO] Battery recharged. Low battery mode disabled', flush=True)
             elif random.randint(0, 100) < 5:
                 print('[INFO] Battery low. Deploying solar panels', flush=True)
-                self.low_battery_mode = True
-                self.networking_disabled = True
+                self.low_battery_mode, self.networking_disabled, self.movement_disabled = True, True, True
                 if self.leader_id == self.node_id:
                     self.leader_id = None
 
             if not self.low_battery_mode:
                 turns_spent_recharging = 0
-                if self.movement_enabled:
-                    self._move()
-                    print('[INFO] Rover moved to new location', flush=True)
             else:
                 print('[INFO] Recharging...', flush=True)
                 turns_spent_recharging += 1
-            time.sleep(20)
+            time.sleep(SLEEP_TIME_BATTERY)
 
-    def _start_sensors(self):
+    def _start_heartbeat(self):
         while True:
-            self.sensors.update()
-            print('[INFO] Engine Sensors:', {'positioning-system': self.location, 'speedometer': self.speedometer})
-            # print('[INFO] Sensors KMeans:', self.sensors.k_means())
-            time.sleep(20)
+            if not self.networking_disabled:
+                try:
+                    self.heartbeat()
+                except SystemError:
+                    pass
+            time.sleep(SLEEP_TIME_HEARTBEAT)
 
     def _wait_for_election_results(self):
         self.i_am_the_best_leader_available = True
-        time.sleep(30)
+        time.sleep(SLEEP_TIME_ELECTION_RESULTS)
 
         if self.i_am_the_best_leader_available:
             print('[INFO] I won the election! Time to get corrupt')
@@ -109,9 +89,9 @@ class Rover(RoverRadio):
         self._wait_for_election_results()
 
     def _check_leadership(self):
-        time.sleep(60)
+        time.sleep(SLEEP_TIME_ELECTION_FIRST)
         while True:
-            time.sleep(random.randint(30, 90))
+            time.sleep(random.randint(SLEEP_TIME_ELECTION_MIN, SLEEP_TIME_ELECTION_MAX))
             if not self.low_battery_mode and not self.is_election_going_on:
                 if not self.leader_id or \
                         (self.leader_id != self.node_id and time.time() - self.known_rovers[self.leader_id] > 30):
@@ -177,4 +157,5 @@ class Rover(RoverRadio):
         threading.Thread(target=self._start_server).start()
         threading.Thread(target=self._start_engine).start()
         threading.Thread(target=self._start_sensors).start()
+        threading.Thread(target=self._start_heartbeat).start()
         threading.Thread(target=self._check_leadership).start()
