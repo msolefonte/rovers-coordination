@@ -99,7 +99,9 @@ class Rover(RoverRadio, RoverEngine, RoverSensors):
                         (self.leader_id != self.node_id and time.time() - self.known_rovers[self.leader_id] > 30):
                     self._start_election()
 
-    def _handle_election(self, content):
+    # # Handle election in process
+
+    def _handle_election_start(self, content):
         if content['type'] == 'election':
             print('[INFO] Election in process')
             self.is_election_going_on = True
@@ -110,46 +112,63 @@ class Rover(RoverRadio, RoverEngine, RoverSensors):
                     self.broadcast_message_to('election-propagation', rover, self.node_id, noerr=True)
             self._wait_for_election_results()
 
-        elif content['type'] == 'targeted-broadcast':
+    def _handle_election_propagation(self, content):
+        if content['type'] == 'targeted-broadcast':
             if content['message'] == 'election-propagation':
                 self.broadcast_message_to('election-reply', content['reply_to'], self.node_id, noerr=True)
             if content['message'] == 'election-reply' and content['reply_to'][-1] < self.node_id[-1]:
                 print('[DEBU] A bigger fish replied:', content['reply_to'])
                 self.i_am_the_best_leader_available = False
 
-        elif content['type'] == 'victory':
+    def _handle_election_victory(self, content):
+        if content['type'] == 'victory':
             self.leader_id = content['emitter']
             self.is_election_going_on = False
             print('[INFO] Election done. Rover', content['emitter'], 'won')
 
+    def _handle_election(self, content):
+        self._handle_election_start(content)
+        self._handle_election_propagation(content)
+        self._handle_election_victory(content)
+
+    def _handle_election_messages(self, content):
+        if content['type'] == 'election' or content['type'] == 'victory':
+            self.known_rovers[content['emitter']] = time.time()
+            if content['ttl'] - 1 >= 0:
+                self.broadcast({'type': content['type'], 'emitter': content['emitter']}, content['nonce'],
+                               content['ttl'] - 1, True)
+            self._handle_election(content)
+
     # Handle requests
+
+    def _handle_heartbeat(self, content):
+        if content['type'] == 'heartbeat':
+            self.known_rovers[content['rover_id']] = time.time()
+            if content['ttl'] - 1 >= 0:
+                self.broadcast({'type': 'heartbeat', 'rover_id': content['rover_id']}, content['nonce'],
+                               content['ttl'] - 1, True)
+
+    def _handle_targeted_broadcast(self, content):
+        if content['type'] == 'targeted-broadcast':
+            self.known_rovers[content['reply_to']] = time.time()
+            if content['to'] == self.node_id:
+                self._handle_election(content)
+            else:
+                if content['ttl'] - 1 >= 0:
+                    self.broadcast_message_to(content['message'], content['to'], content['reply_to'],
+                                              content['nonce'], content['ttl'] - 1, noerr=True)
 
     def _handle_decrypted_request(self, message, _):
         content = json.loads(message['content'])
-        ttl = content['ttl'] - 1
 
         if content['nonce'] not in self.consumed_nonces:
             self.consumed_nonces[content['nonce']] = time.time()
         else:
             return
 
-        if content['type'] == 'heartbeat':
-            self.known_rovers[content['rover_id']] = time.time()
-            if ttl >= 0:
-                self.broadcast({'type': 'heartbeat', 'rover_id': content['rover_id']}, content['nonce'], ttl, True)
-        elif content['type'] == 'targeted-broadcast':
-            self.known_rovers[content['reply_to']] = time.time()
-            if content['to'] == self.node_id:
-                self._handle_election(content)
-            else:
-                if ttl >= 0:
-                    self.broadcast_message_to(content['message'], content['to'], content['reply_to'],
-                                              content['nonce'], ttl, noerr=True)
-        elif content['type'] == 'election' or content['type'] == 'victory':
-            self.known_rovers[content['emitter']] = time.time()
-            if ttl >= 0:
-                self.broadcast({'type': content['type'], 'emitter': content['emitter']}, content['nonce'], ttl, True)
-            self._handle_election(content)
+        self._handle_heartbeat(content)
+        self._handle_targeted_broadcast(content)
+        self._handle_election_messages(content)
 
     def start(self):
         threading.Thread(target=self._start_server).start()

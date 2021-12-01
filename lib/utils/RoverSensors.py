@@ -104,7 +104,6 @@ class RoverSensors:
             time.sleep(SLEEP_TIME_SENSORS)
             self.update()
 
-            print(self.lectures)
             if len(self.lectures) > 0:
                 self.lectures[-1]['positioning-system'] = self.location
                 self.lectures[-1]['speedometer'] = self.speedometer
