@@ -7,10 +7,10 @@ from .SDNNode import SDNNode
 
 
 class RoverRadio(SDNNode):
-    def __init__(self, node_id, location, host, port, known_peers, radio_range, encryption_key):
-        super().__init__(node_id, location, host, port, known_peers, radio_range)
+    def __init__(self, node_id, sdn_properties, physical_properties):
+        super().__init__(node_id, sdn_properties, physical_properties)
         self.consumed_nonces = {}  # {nonce: timestamp}
-        self.encryptor = Encryptor(encryption_key)
+        self.encryptor = Encryptor(physical_properties['encryption_key'])
 
     def broadcast(self, message, nonce=None, ttl=16, noerr=False):
         nonce = nonce if nonce else uuid.uuid4().hex
