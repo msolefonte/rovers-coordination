@@ -5,20 +5,20 @@ import threading
 
 
 class SDNNode:
-    def __init__(self, node_id, location, host, port, known_peers, radio_range):
+    def __init__(self, node_id, sdn_properties, physical_properties):
         # Identification
         self.node_id = node_id
 
         # Capabilities
-        self.radio_range = radio_range
+        self.radio_range = physical_properties['radio_range']
 
         # Network
-        self.host = host
-        self.port = port
-        self.known_peers = known_peers
+        self.host = sdn_properties['host']
+        self.port = sdn_properties['port']
+        self.known_peers = sdn_properties['known_peers']
 
         # Status
-        self.location = location
+        self.location = physical_properties['location']
         self.networking_disabled = False
 
     # Simulation

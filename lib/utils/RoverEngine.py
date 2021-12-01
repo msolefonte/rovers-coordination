@@ -4,9 +4,9 @@ from .constants import SLEEP_TIME_ENGINE
 
 
 class RoverEngine:
-    def __init__(self, operation_area, max_speed):
-        self.operation_area = operation_area
-        self.max_speed = max_speed
+    def __init__(self, physical_properties):
+        self.operation_area = physical_properties['operation_area']
+        self.max_speed = physical_properties['max_speed']
 
         # Sensors
         self.movement_disabled = False
