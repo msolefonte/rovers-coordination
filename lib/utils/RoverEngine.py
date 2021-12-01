@@ -34,12 +34,8 @@ class RoverEngine:
         self.speedometer = {'x': x_movement, 'y': y_movement}
 
     def _start_engine(self):
-        turns_spent_recharging = 0
         while True:
             if not self.movement_disabled:
                 self._move()
                 print('[INFO] Rover moved to new location', flush=True)
-            else:
-                print('[INFO] Recharging...', flush=True)
-                turns_spent_recharging += 1
             time.sleep(SLEEP_TIME_ENGINE)
