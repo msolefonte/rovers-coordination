@@ -12,7 +12,7 @@ class RoverRadio(SDNNode):
         self.consumed_nonces = {}  # {nonce: timestamp}
         self.encryptor = Encryptor(encryption_key)
 
-    def broadcast(self, message, nonce=None, ttl=16):
+    def broadcast(self, message, nonce=None, ttl=16, noerr=False):
         nonce = nonce if nonce else uuid.uuid4().hex
         message['nonce'] = nonce
         message['ttl'] = ttl
@@ -23,23 +23,22 @@ class RoverRadio(SDNNode):
         super().broadcast(self.encryptor.encrypt(json.dumps(message)))
         self.consumed_nonces[nonce] = time.time()
 
-    def broadcast_message_to(self, message, target_id, reply_to_id=None, nonce=None, ttl=16):
+    def broadcast_message_to(self, message, target_id, reply_to_id=None, nonce=None, ttl=16, noerr=False):
         if not self.networking_disabled:
             reply_to_id = reply_to_id if reply_to_id else self.node_id
-
-            # print('[DEBU] Broadcasting message targeting', target_id + '. (Origin', reply_to_id + ')')
 
             self.broadcast({
                 'type': 'targeted-broadcast',
                 'message': message,
                 'to': target_id,
                 'reply_to': reply_to_id if reply_to_id else self.node_id
-            }, nonce, ttl)
+            }, nonce, ttl, noerr)
         else:
-            raise SystemError('Broadcasting disabled')
+            if not noerr:
+                raise SystemError('Broadcasting disabled')
 
-    def heartbeat(self):
-        self.broadcast({'type': 'heartbeat', 'rover_id': self.node_id})
+    def heartbeat(self, noerr=False):
+        self.broadcast({'type': 'heartbeat', 'rover_id': self.node_id}, noerr=noerr)
 
     def _handle_request(self, message, client_address):
         message['content'] = self.encryptor.decrypt(message['content'])
