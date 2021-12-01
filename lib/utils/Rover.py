@@ -157,12 +157,16 @@ class Rover(RoverRadio, RoverEngine, RoverSensors):
             self.broadcast_message_to(content['message'], content['to'], content['reply_to'], content['nonce'],
                                       content['ttl'] - 1, noerr=True)
 
+    def _nonce_already_consumed(self, nonce):
+        if nonce not in self.consumed_nonces:
+            self.consumed_nonces[nonce] = time.time()
+            return False
+        return True
+
     def _handle_decrypted_request(self, message, _):
         content = json.loads(message['content'])
 
-        if content['nonce'] not in self.consumed_nonces:
-            self.consumed_nonces[content['nonce']] = time.time()
-
+        if not self._nonce_already_consumed(content['nonce']):
             if content['type'] == 'heartbeat':
                 self._handle_heartbeat(content)
             elif content['type'] == 'targeted-broadcast':
