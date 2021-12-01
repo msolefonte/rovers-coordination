@@ -12,6 +12,13 @@ class RoverRadio(SDNNode):
         self.consumed_nonces = {}  # {nonce: timestamp}
         self.encryptor = Encryptor(physical_properties['encryption_key'])
 
+    def _handle_request(self, message, client_address):
+        message['content'] = self.encryptor.decrypt(message['content'])
+        self._handle_decrypted_request(message, client_address)
+
+    def _handle_decrypted_request(self, message, client_address):
+        raise NotImplementedError
+
     def broadcast(self, message, nonce=None, ttl=16, noerr=False):
         nonce = nonce if nonce else uuid.uuid4().hex
         message['nonce'] = nonce
@@ -20,7 +27,7 @@ class RoverRadio(SDNNode):
         # Artificial sleep to prevent all nodes broadcasting at the same time
         time.sleep(random.randint(0, 20) * 0.1)
 
-        super().broadcast(self.encryptor.encrypt(json.dumps(message)))
+        super()._broadcast(self.encryptor.encrypt(json.dumps(message)))
         self.consumed_nonces[nonce] = time.time()
 
     def broadcast_message_to(self, message, target_id, reply_to_id=None, nonce=None, ttl=16, noerr=False):
@@ -39,10 +46,3 @@ class RoverRadio(SDNNode):
 
     def heartbeat(self, noerr=False):
         self.broadcast({'type': 'heartbeat', 'rover_id': self.node_id}, noerr=noerr)
-
-    def _handle_request(self, message, client_address):
-        message['content'] = self.encryptor.decrypt(message['content'])
-        self._handle_decrypted_request(message, client_address)
-
-    def _handle_decrypted_request(self, message, client_address):
-        raise NotImplementedError
