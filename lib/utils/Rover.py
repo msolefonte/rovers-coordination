@@ -10,23 +10,13 @@ from .constants import SLEEP_TIME_BATTERY, SLEEP_TIME_ELECTION_FIRST, SLEEP_TIME
 
 
 class Rover(RoverRadio, RoverEngine, RoverSensors):
-    """
-    rover_id - id, host - host, port - port
-    known_peers = host:port,host:port // For simulation purposes
-    operation_area - 0,0,999,999 // Coordinates that defines the operation area. Second point always bigger
-    speed - 20
-    """
-    def __init__(self, rover_id, host, port, known_peers, operation_area, max_speed, radio_range, encryption_key):
+    def __init__(self, rover_id, sdn_properties, physical_properties):
         # Deployment
-        self.operation_area = operation_area
-        self.location = {
-            'x': random.randint(operation_area[0][0], operation_area[1][0]),
-            'y': random.randint(operation_area[0][1], operation_area[1][1])
-        }
+        self.location = physical_properties['location']
 
         # Individual components
-        RoverRadio.__init__(self, rover_id, self.location, host, port, known_peers, radio_range, encryption_key)
-        RoverEngine.__init__(self, operation_area, max_speed)
+        RoverRadio.__init__(self, rover_id, sdn_properties, physical_properties)
+        RoverEngine.__init__(self, physical_properties)
         RoverSensors.__init__(self)
 
         # Battery
@@ -167,3 +157,6 @@ class Rover(RoverRadio, RoverEngine, RoverSensors):
         threading.Thread(target=self._start_sensors).start()
         threading.Thread(target=self._start_heartbeat).start()
         threading.Thread(target=self._check_leadership).start()
+
+    def am_i_leader(self):
+        return self.leader_id == self.node_id

@@ -4,9 +4,8 @@ from .RoverRadio import RoverRadio
 
 
 class NetworkVisualizer(RoverRadio):
-    def __init__(self, node_id, host, port, location_x, location_y, encryption_key):
-        super().__init__(node_id, {'x': int(location_x), 'y': int(location_y)}, host, int(port), [], 999999999999,
-                         encryption_key)
+    def __init__(self, node_id, sdn_properties, physical_properties):
+        super().__init__(node_id, sdn_properties, physical_properties)
 
         self.rover_locations = {}
 
