@@ -36,12 +36,20 @@ class LeaderElection:
 
     @staticmethod
     def _handle_election_propagation(rover: 'Rover', content):
+        if content['message'] == 'election-propagation':
+            rover.broadcast_message_to('election-reply', content['reply_to'], rover.node_id, noerr=True)
+
+    @staticmethod
+    def _handle_election_reply(rover: 'Rover', content):
+        if content['message'] == 'election-reply' and content['reply_to'][-1] < rover.node_id[-1]:
+            print('[DEBU] A bigger fish replied:', content['reply_to'])
+            rover.i_am_the_best_leader_available = False
+
+    @staticmethod
+    def _handle_election_targeted(rover: 'Rover', content):
         if content['type'] == 'targeted-broadcast':
-            if content['message'] == 'election-propagation':
-                rover.broadcast_message_to('election-reply', content['reply_to'], rover.node_id, noerr=True)
-            if content['message'] == 'election-reply' and content['reply_to'][-1] < rover.node_id[-1]:
-                print('[DEBU] A bigger fish replied:', content['reply_to'])
-                rover.i_am_the_best_leader_available = False
+            LeaderElection._handle_election_propagation(rover, content)
+            LeaderElection._handle_election_reply(rover, content)
 
     @staticmethod
     def _handle_election_victory(rover: 'Rover', content):
@@ -53,7 +61,7 @@ class LeaderElection:
     @staticmethod
     def handle_election(rover: 'Rover', content):
         LeaderElection._handle_election_start(rover, content)
-        LeaderElection._handle_election_propagation(rover, content)
+        LeaderElection._handle_election_targeted(rover, content)
         LeaderElection._handle_election_victory(rover, content)
 
     @staticmethod
@@ -66,11 +74,19 @@ class LeaderElection:
         LeaderElection._wait_for_election_results(rover)
 
     @staticmethod
+    def _is_leader_down(rover: 'Rover'):
+        return not rover.leader_id or \
+               (rover.leader_id != rover.node_id and time.time() - rover.known_rovers[rover.leader_id] > 30)
+
+    @staticmethod
+    def _check_leadership(rover: 'Rover'):
+        time.sleep(random.randint(SLEEP_TIME_ELECTION_MIN, SLEEP_TIME_ELECTION_MAX))
+        if not rover.low_battery_mode and not rover.is_election_going_on:
+            if LeaderElection._is_leader_down(rover):
+                LeaderElection._start_election(rover)
+
+    @staticmethod
     def check_leadership(rover: 'Rover'):
         time.sleep(SLEEP_TIME_ELECTION_FIRST)
         while True:
-            time.sleep(random.randint(SLEEP_TIME_ELECTION_MIN, SLEEP_TIME_ELECTION_MAX))
-            if not rover.low_battery_mode and not rover.is_election_going_on:
-                if not rover.leader_id or \
-                        (rover.leader_id != rover.node_id and time.time() - rover.known_rovers[rover.leader_id] > 30):
-                    LeaderElection._start_election(rover)
+            LeaderElection._check_leadership(rover)
