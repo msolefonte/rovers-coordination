@@ -2,11 +2,11 @@ import json
 import random
 import threading
 import time
-from .RoverEngine import RoverEngine
-from .RoverRadio import RoverRadio
-from .RoverSensors import RoverSensors
-from .constants import SLEEP_TIME_BATTERY, SLEEP_TIME_ELECTION_FIRST, SLEEP_TIME_ELECTION_MAX, \
-    SLEEP_TIME_ELECTION_MIN, SLEEP_TIME_ELECTION_RESULTS, SLEEP_TIME_HEARTBEAT
+from utils.LeaderElection import LeaderElection
+from utils.RoverEngine import RoverEngine
+from utils.RoverRadio import RoverRadio
+from utils.RoverSensors import RoverSensors
+from utils.constants import SLEEP_TIME_BATTERY
 
 
 class Rover(RoverRadio, RoverEngine, RoverSensors):
@@ -61,86 +61,6 @@ class Rover(RoverRadio, RoverEngine, RoverSensors):
             self._check_battery()
             time.sleep(SLEEP_TIME_BATTERY)
 
-    # Heartbeat
-
-    def _start_heartbeat(self):
-        while True:
-            self.heartbeat(noerr=True)
-            time.sleep(SLEEP_TIME_HEARTBEAT)
-
-    # Coordination
-
-    def _wait_for_election_results(self):
-        self.i_am_the_best_leader_available = True
-        time.sleep(SLEEP_TIME_ELECTION_RESULTS)
-
-        if self.i_am_the_best_leader_available:
-            print('[INFO] I won the election! Time to get corrupt')
-            self.broadcast({'type': 'victory', 'emitter': self.node_id}, noerr=True)
-            self.leader_id = self.node_id
-            self.is_election_going_on = False
-        else:
-            print('[DEBU] There are better candidates to win the election')
-
-    def _start_election(self):
-        print('[INFO] Leader election started')
-        self.is_election_going_on = True
-
-        self.election_start_time = time.time()
-        self.broadcast({'type': 'election', 'emitter': self.node_id}, noerr=True)
-        self._wait_for_election_results()
-
-    def _check_leadership(self):
-        time.sleep(SLEEP_TIME_ELECTION_FIRST)
-        while True:
-            time.sleep(random.randint(SLEEP_TIME_ELECTION_MIN, SLEEP_TIME_ELECTION_MAX))
-            if not self.low_battery_mode and not self.is_election_going_on:
-                if not self.leader_id or \
-                        (self.leader_id != self.node_id and time.time() - self.known_rovers[self.leader_id] > 30):
-                    self._start_election()
-
-    # # Handle election in process
-
-    def _rebroadcast_election(self):
-        for rover in list(self.known_rovers):
-            if rover[-1] < self.node_id[-1]:
-                self.broadcast_message_to('election-propagation', rover, self.node_id, noerr=True)
-
-    def _handle_election_start(self, content):
-        if content['type'] == 'election':
-            print('[INFO] Election in process')
-            self.is_election_going_on = True
-            if self.node_id[-1] < content['emitter'][-1]:
-                self.broadcast_message_to('election-reply', content['emitter'], self.node_id, noerr=True)
-            self._rebroadcast_election()
-            self._wait_for_election_results()
-
-    def _handle_election_propagation(self, content):
-        if content['type'] == 'targeted-broadcast':
-            if content['message'] == 'election-propagation':
-                self.broadcast_message_to('election-reply', content['reply_to'], self.node_id, noerr=True)
-            if content['message'] == 'election-reply' and content['reply_to'][-1] < self.node_id[-1]:
-                print('[DEBU] A bigger fish replied:', content['reply_to'])
-                self.i_am_the_best_leader_available = False
-
-    def _handle_election_victory(self, content):
-        if content['type'] == 'victory':
-            self.leader_id = content['emitter']
-            self.is_election_going_on = False
-            print('[INFO] Election done. Rover', content['emitter'], 'won')
-
-    def _handle_election(self, content):
-        self._handle_election_start(content)
-        self._handle_election_propagation(content)
-        self._handle_election_victory(content)
-
-    def _handle_election_messages(self, content):
-        self.known_rovers[content['emitter']] = time.time()
-        if content['ttl'] - 1 >= 0:
-            self.broadcast({'type': content['type'], 'emitter': content['emitter']}, content['nonce'],
-                           content['ttl'] - 1, True)
-        self._handle_election(content)
-
     # Handle requests
 
     def _handle_heartbeat(self, content):
@@ -152,10 +72,17 @@ class Rover(RoverRadio, RoverEngine, RoverSensors):
     def _handle_targeted_broadcast(self, content):
         self.known_rovers[content['reply_to']] = time.time()
         if content['to'] == self.node_id:
-            self._handle_election(content)
+            LeaderElection.handle_election(self, content)
         elif content['ttl'] - 1 >= 0:
             self.broadcast_message_to(content['message'], content['to'], content['reply_to'], content['nonce'],
                                       content['ttl'] - 1, noerr=True)
+
+    def _handle_election_messages(self, content):
+        self.known_rovers[content['emitter']] = time.time()
+        if content['ttl'] - 1 >= 0:
+            self.broadcast({'type': content['type'], 'emitter': content['emitter']}, content['nonce'],
+                            content['ttl'] - 1, True)
+        LeaderElection.handle_election(self, content)
 
     def _nonce_already_consumed(self, nonce):
         if nonce not in self.consumed_nonces:
@@ -179,7 +106,7 @@ class Rover(RoverRadio, RoverEngine, RoverSensors):
         threading.Thread(target=self._start_engine).start()
         threading.Thread(target=self._start_sensors).start()
         threading.Thread(target=self._start_heartbeat).start()
-        threading.Thread(target=self._check_leadership).start()
+        threading.Thread(target=lambda: LeaderElection.check_leadership(self)).start()
 
     def am_i_leader(self):
         return self.leader_id == self.node_id
