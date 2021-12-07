@@ -4,6 +4,7 @@ import time
 import uuid
 from .Encryptor import Encryptor
 from .SDNNode import SDNNode
+from utils.constants import SLEEP_TIME_HEARTBEAT
 
 
 class RoverRadio(SDNNode):
@@ -11,6 +12,13 @@ class RoverRadio(SDNNode):
         super().__init__(node_id, sdn_properties, physical_properties)
         self.consumed_nonces = {}  # {nonce: timestamp}
         self.encryptor = Encryptor(physical_properties['encryption_key'])
+
+    # Heartbeat
+
+    def _start_heartbeat(self):
+        while True:
+            self.heartbeat(noerr=True)
+            time.sleep(SLEEP_TIME_HEARTBEAT)
 
     def _handle_request(self, message, client_address):
         message['content'] = self.encryptor.decrypt(message['content'])
