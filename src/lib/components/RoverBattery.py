@@ -6,7 +6,8 @@ from lib.utils.constants import SLEEP_TIME_BATTERY
 class RoverBattery:
     """
     The battery has a 5% probability of getting empty. Once empty, the rover enters in the low battery mode and spends
-    three turns in the same location, disables networking and, if it was, stops acting as a leader.
+    three turns in the same location, disables networking and, if it was, stops acting as a leader. However, if the
+    rover is stopped in a position and the antenna is deployed, the battery can not go down.
     """
     def __init__(self):
         self.low_battery_mode = False
@@ -17,6 +18,11 @@ class RoverBattery:
         self.node_id = self.node_id
         self.networking_disabled = self.networking_disabled
         self.movement_disabled = self.movement_disabled
+        self.antenna_deployed = self.antenna_deployed
+
+    def _enable_capabilities(self):
+        self.low_battery_mode, self.networking_disabled, self.movement_disabled = False, False, False
+        print('[INFO] Battery recharged. Low battery mode disabled', flush=True)
 
     def _disable_capabilities(self):
         print('[INFO] Battery low. Deploying solar panels', flush=True)
@@ -24,9 +30,8 @@ class RoverBattery:
         if self.leader_id == self.node_id:
             self.leader_id = None
 
-    def _enable_capabilities(self):
-        self.low_battery_mode, self.networking_disabled, self.movement_disabled = False, False, False
-        print('[INFO] Battery recharged. Low battery mode disabled', flush=True)
+    def _is_battery_low(self):
+        return not self.antenna_deployed and random.randint(0, 100) < 5
 
     def _check_battery(self):
         if self.low_battery_mode:
@@ -36,7 +41,7 @@ class RoverBattery:
             else:
                 print('[INFO] Recharging...', flush=True)
                 self. turns_spent_recharging += 1
-        elif random.randint(0, 100) < 5:
+        elif self._is_battery_low():
             self._disable_capabilities()
 
     def _start_battery_check(self):
