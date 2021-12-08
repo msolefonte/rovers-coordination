@@ -1,6 +1,7 @@
 import json
 import threading
 import time
+from lib.components.RoverAntenna import RoverAntenna
 from lib.components.RoverBattery import RoverBattery
 from lib.components.RoverEngine import RoverEngine
 from lib.components.RoverRadio import RoverRadio
@@ -8,7 +9,7 @@ from lib.components.RoverSensors import RoverSensors
 from lib.utils.LeaderElection import LeaderElection
 
 
-class Rover(RoverBattery, RoverEngine, RoverRadio, RoverSensors):
+class Rover(RoverAntenna, RoverBattery, RoverEngine, RoverRadio, RoverSensors):
     def __init__(self, rover_id, sdn_properties, physical_properties):
         # Deployment
         self.location = physical_properties['location']
@@ -22,6 +23,7 @@ class Rover(RoverBattery, RoverEngine, RoverRadio, RoverSensors):
         # Individual components - Respect start order
         RoverRadio.__init__(self, rover_id, sdn_properties, physical_properties)
         RoverEngine.__init__(self, physical_properties)
+        RoverAntenna.__init__(self)
         RoverBattery.__init__(self)
         RoverSensors.__init__(self)
 
