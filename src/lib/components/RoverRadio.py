@@ -35,7 +35,7 @@ class RoverRadio(SDNNode):
         # Artificial sleep to prevent all nodes broadcasting at the same time
         time.sleep(random.randint(0, 20) * 0.1)
 
-        super()._broadcast(self.encryptor.encrypt(json.dumps(message)))
+        super()._broadcast(self.encryptor.encrypt(json.dumps(message)), noerr=noerr)
         self.consumed_nonces[nonce] = time.time()
 
     def broadcast_message_to(self, message, target_id, reply_to_id=None, nonce=None, ttl=16, noerr=False):

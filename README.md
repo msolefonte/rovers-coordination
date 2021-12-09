@@ -8,21 +8,30 @@ Wireless coordination algorithms applied to Mars rovers.
 
 ## About the project
 
-TBD
+The objective of this project is to design, implement and
+build a peer-to-peer networking protocol applied to Mars
+rovers. In order to do so, a Software Defined Network is
+utilized in order to simulate the wireless environment,
+unreliable and with constant topology changes.
 
-## Getting started
-
-### Prerequisites
-
-TBD
-
-### Installation
-
-TBD
+Apart from the core, a list of components have been added
+in order to simulate a sufficiently realistic environment.
+This includes but is not limited to radios, antennas,
+engines, batteries and sensors, all of them with automated
+failures associated in order to evaluate the algorithm
+fault-tolerance capacities.
 
 ## Usage
 
-TBD
+**Start*
+```bash
+./scripts/start.sh
+```
+
+**Stop**
+```bash
+./scripts/stop.sh
+```
 
 ## Contributing
 
