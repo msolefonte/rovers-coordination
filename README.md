@@ -23,7 +23,7 @@ fault-tolerance capacities.
 
 ## Usage
 
-**Start*
+**Start**
 ```bash
 ./scripts/start.sh
 ```
